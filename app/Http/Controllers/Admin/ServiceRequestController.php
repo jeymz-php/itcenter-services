@@ -81,6 +81,13 @@ class ServiceRequestController extends Controller
         $this->guard();
         $serviceRequest->update(['status' => 'completed']);
         $this->reduceStock($serviceRequest);
+        AdminNotification::notify(
+            'request_completed','Request Completed',
+            "Request {$serviceRequest->request_number} marked as completed.",
+            $serviceRequest->user,
+            route('admin.service-requests.index'),
+            'fa-check-double'
+        );
         return back()->with('success', "Request marked as completed.");
     }
 
@@ -196,11 +203,15 @@ class ServiceRequestController extends Controller
     }
 
     private function reduceStock(ServiceRequest $sr): void {
-        if (in_array($sr->service_type, ['printing','photocopy']) && $sr->paper_size && $sr->copies) {
-            \App\Models\InventoryItem::where('category','paper_size')
-                ->where('value', $sr->paper_size)
-                ->where('stock', '>', 0)
-                ->decrement('stock', min($sr->copies, \App\Models\InventoryItem::where('category','paper_size')->where('value',$sr->paper_size)->value('stock') ?? 0));
+        if (!in_array($sr->service_type, ['printing','photocopy'])) return;
+        if (!$sr->paper_size || !$sr->copies) return;
+
+        $item = \App\Models\InventoryItem::where('category','paper_size')
+                                        ->where('value', $sr->paper_size)
+                                        ->first();
+        if ($item && $item->stock > 0) {
+            $reduce = min((int)$sr->copies, (int)$item->stock);
+            $item->decrement('stock', $reduce);
         }
     }
 }

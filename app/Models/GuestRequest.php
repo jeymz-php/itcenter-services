@@ -9,8 +9,8 @@ class GuestRequest extends Model
         'request_number','role','first_name','last_name','email',
         'id_number','campus','service_type','status',
         'paper_size','copies','file_path','file_name',
-        'print_type','purpose',
-        'reviewed_by','reviewed_at','admin_note',
+        'print_type','purpose','duration_minutes',
+        'computer_id','reviewed_by','reviewed_at','admin_note',
     ];
 
     protected $casts = ['reviewed_at' => 'datetime'];
@@ -23,6 +23,14 @@ class GuestRequest extends Model
         return $this->belongsTo(Admin::class, 'reviewed_by');
     }
 
+    public function computer() {
+        return $this->belongsTo(Computer::class);
+    }
+
+    public function computerSession() {
+        return $this->hasOne(GuestComputerSession::class);
+    }
+
     public static function generateNumber(): string {
         $last = static::orderByDesc('id')->first();
         $next = $last ? ($last->id + 1) : 1;
@@ -33,6 +41,7 @@ class GuestRequest extends Model
         return match($this->service_type) {
             'printing'  => 'fa-print',
             'photocopy' => 'fa-copy',
+            'research'  => 'fa-desktop',
             default     => 'fa-file',
         };
     }
@@ -41,6 +50,7 @@ class GuestRequest extends Model
         return match($this->service_type) {
             'printing'  => 'var(--blue)',
             'photocopy' => 'var(--orange)',
+            'research'  => 'var(--g600)',
             default     => 'var(--gray600)',
         };
     }

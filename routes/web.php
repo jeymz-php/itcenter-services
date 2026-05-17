@@ -13,6 +13,9 @@ use App\Http\Controllers\Admin\InventoryController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\GuestRequestController;
 use App\Http\Controllers\Admin\GuestRequestController as AdminGuestRequestController;
+use App\Http\Controllers\User\NotificationController as UserNotificationController;
+
+Route::middleware('auth')->get('/user/notifications/poll', [UserNotificationController::class, 'poll'])->name('user.notifications.poll');
 
 // ── PUBLIC AUTH ──
 Route::get('/',          [AuthController::class, 'showLogin'])->name('login');
@@ -50,6 +53,10 @@ Route::middleware('auth')->group(function () {
 Route::get('/admin_login',   [AdminAuthController::class, 'showLogin'])->name('admin.login');
 Route::post('/admin_login',  [AdminAuthController::class, 'login'])->name('admin.login.post');
 Route::post('/admin_logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
+
+// Real-time polling endpoints
+Route::get('/admin/notifications/poll', [NotificationController::class, 'poll'])->name('admin.notifications.poll');
+Route::middleware('auth')->get('/user/notifications/poll', [App\Http\Controllers\User\NotificationController::class, 'poll'])->name('user.notifications.poll');
 
 // ── ADMIN PANEL ──
 Route::prefix('admin')->name('admin.')->group(function () {
@@ -130,12 +137,15 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
     // PUBLIC ADMIN PREFIX GROUP
     Route::prefix('guest-requests')->name('guest-requests.')->group(function () {
-        Route::get('/',                        [AdminGuestRequestController::class, 'index'])->name('index');
-        Route::get('/{guestRequest}',          [AdminGuestRequestController::class, 'show'])->name('show');
-        Route::post('/{guestRequest}/approve', [AdminGuestRequestController::class, 'approve'])->name('approve');
-        Route::post('/{guestRequest}/reject',  [AdminGuestRequestController::class, 'reject'])->name('reject');
+        Route::get('/',                           [AdminGuestRequestController::class, 'index'])->name('index');
+        Route::get('/{guestRequest}',             [AdminGuestRequestController::class, 'show'])->name('show');
+        Route::post('/{guestRequest}/approve',    [AdminGuestRequestController::class, 'approve'])->name('approve');
+        Route::post('/{guestRequest}/reject',     [AdminGuestRequestController::class, 'reject'])->name('reject');
         Route::post('/{guestRequest}/processing', [AdminGuestRequestController::class, 'processing'])->name('processing');
         Route::post('/{guestRequest}/complete',   [AdminGuestRequestController::class, 'complete'])->name('complete');
+        Route::post('/{guestRequest}/assign-pc',  [AdminGuestRequestController::class, 'assignPC'])->name('assign-pc');
+        Route::post('/{guestRequest}/end-session',[AdminGuestRequestController::class, 'endSession'])->name('end-session');
+        Route::get('/{guestRequest}/session-status',[AdminGuestRequestController::class, 'sessionStatus'])->name('session-status');
     });
 
 });

@@ -20,26 +20,27 @@ class AuthController extends Controller
             'password'  => 'required|string',
         ]);
 
-        $user = User::where('id_number',  $request->id_number)
-                    ->where('campus',     $request->campus)
-                    ->where('user_type',  $request->user_type)
-                    ->first();
+        $user = \App\Models\User::where('id_number',  $request->id_number)
+                                ->where('campus',     $request->campus)
+                                ->where('user_type',  $request->user_type)
+                                ->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (!$user || !\Illuminate\Support\Facades\Hash::check($request->password, $user->password)) {
             return back()->withErrors(['login' => 'Invalid credentials. Please try again.'])->withInput();
         }
 
-        if ($user->status === 'pending') {
-            return back()->withErrors(['login' => 'Your account is pending verification by the IT Center admin.'])->withInput();
+        // Blocked statuses — cannot log in at all
+        if ($user->status === 'archived') {
+            return back()->withErrors(['login' => 'This account has been archived and cannot be accessed. Please contact the IT Center.'])->withInput();
         }
         if ($user->status === 'rejected') {
-            return back()->withErrors(['login' => 'Your account has been rejected. Please contact the IT Center.'])->withInput();
-        }
-        if ($user->status === 'archived') {
-            return back()->withErrors(['login' => 'This account has been archived. Please contact the IT Center.'])->withInput();
+            return back()->withErrors(['login' => 'Your account registration was rejected. Please contact the IT Center.'])->withInput();
         }
 
-        Auth::login($user);
+        // These statuses CAN log in but see restricted dashboard
+        // pending, deactivated → allowed to login, shown notice on dashboard
+
+        \Illuminate\Support\Facades\Auth::login($user);
         return redirect()->route('dashboard');
     }
 

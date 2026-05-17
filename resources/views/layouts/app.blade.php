@@ -321,6 +321,32 @@ tr:hover td{background:var(--g50)}
   .sb-toggle{display:flex;align-items:center;justify-content:center}
   .sb-nav.mobile-open{display:flex!important;flex-direction:column;width:100%;order:10;border-top:1px solid rgba(255,255,255,.1);margin-top:8px;padding-top:8px}
 }
+
+/* User notification toast */
+#user-toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  max-width: 320px;
+  pointer-events: none;
+}
+.user-toast {
+  pointer-events: auto;
+  background: var(--white);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(10,51,35,.18);
+  padding: 12px 14px;
+  border-left: 4px solid var(--g500);
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  animation: fadeUp .35s cubic-bezier(.16,1,.3,1);
+  transition: opacity .3s;
+}
 </style>
 @stack('styles')
 </head>
