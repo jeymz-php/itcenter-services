@@ -57,24 +57,60 @@
     <form action="{{ route('requests.printing.store') }}" method="POST" enctype="multipart/form-data" style="padding:20px">
       @csrf
 
-      <!-- File Upload -->
+      <!-- File Upload — replace the existing drop zone section -->
       <div class="fg">
-        <div class="flabel"><i class="fa-solid fa-file-arrow-up" style="color:var(--blue)"></i> Upload File <span style="color:var(--red)">*</span></div>
+        <div class="flabel">
+          <i class="fa-solid fa-file-arrow-up" style="color:var(--blue)"></i>
+          Upload File <span style="color:var(--red)">*</span>
+        </div>
         <div id="drop-zone" onclick="document.getElementById('file-input').click()"
-          style="border:2px dashed var(--gray300);border-radius:10px;padding:22px 16px;text-align:center;cursor:pointer;background:var(--gray100);transition:all .2s">
-          <div id="drop-icon" style="font-size:1.8rem;color:var(--gray400);margin-bottom:6px"><i class="fa-solid fa-cloud-arrow-up"></i></div>
-          <div id="drop-text" style="font-size:.8rem;font-weight:700;color:var(--gray700)">Click to browse or drag & drop</div>
-          <div style="font-size:.68rem;color:var(--gray400);margin-top:3px">PDF, DOC, DOCX, JPG, PNG · Max 10MB</div>
-          <div id="file-preview" style="display:none;margin-top:10px;padding:8px 12px;background:var(--blue-bg);border-radius:8px;align-items:center;gap:8px">
+          style="border:2px dashed var(--gray300);border-radius:10px;padding:22px 16px;
+                text-align:center;cursor:pointer;background:var(--gray100);transition:all .2s">
+          <div id="drop-icon" style="font-size:1.8rem;color:var(--gray400);margin-bottom:6px">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+          </div>
+          <div id="drop-text" style="font-size:.8rem;font-weight:700;color:var(--gray700)">
+            Click to browse or drag & drop
+          </div>
+          <div style="font-size:.68rem;color:var(--gray400);margin-top:3px">
+            PDF, DOC, DOCX, JPG, PNG · Max 10MB
+          </div>
+          <div id="file-preview"
+              style="display:none;margin-top:10px;padding:8px 12px;
+                      background:var(--blue-bg);border-radius:8px;
+                      align-items:center;gap:8px">
             <i class="fa-solid fa-file" style="color:var(--blue)"></i>
             <div style="text-align:left">
-              <div id="file-name" style="font-size:.76rem;font-weight:700;color:var(--blue)"></div>
-              <div id="file-size" style="font-size:.65rem;color:var(--gray400)"></div>
+              <div id="file-name-disp" style="font-size:.76rem;font-weight:700;color:var(--blue)"></div>
+              <div id="file-size-disp" style="font-size:.65rem;color:var(--gray400)"></div>
             </div>
           </div>
         </div>
-        <input type="file" id="file-input" name="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" style="display:none" onchange="handleFile(this)" required>
+        <input type="file" id="file-input" name="file"
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              style="display:none" onchange="handleFile(this)" required>
+
+        {{-- Page detection result shown after upload --}}
+        <div id="page-detection-info" style="display:none;margin-top:8px">
+          <div style="background:var(--g100);border-radius:9px;padding:10px 14px;
+                      display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <i class="fa-solid fa-file-lines" style="color:var(--g600);font-size:1rem"></i>
+            <div>
+              <div id="page-count-text"
+                  style="font-size:.8rem;font-weight:700;color:var(--g700)"></div>
+              <div id="sheet-count-text"
+                  style="font-size:.72rem;color:var(--gray600);margin-top:1px"></div>
+            </div>
+            <div id="page-loading"
+                style="display:none;font-size:.75rem;color:var(--gray400);
+                        display:flex;align-items:center;gap:6px">
+              <i class="fa-solid fa-spinner fa-spin"></i> Detecting pages...
+            </div>
+          </div>
+        </div>
       </div>
+
+      <input type="hidden" name="detected_pages" id="detected_pages_input" value="">
 
       <!-- Paper Size -->
       <div class="fg">
@@ -163,30 +199,101 @@ input[type=radio]:checked+.type-opt{border-color:var(--blue);background:var(--bl
 
 @push('scripts')
 <script>
-function handleFile(input) {
-  if (!input.files||!input.files[0]) return;
-  const f=input.files[0];
-  document.getElementById('file-name').textContent=f.name;
-  document.getElementById('file-size').textContent=(f.size/1024/1024).toFixed(2)+' MB';
-  const fp=document.getElementById('file-preview');
-  fp.style.display='flex';
-  document.getElementById('drop-text').textContent='File selected:';
-  document.getElementById('drop-icon').innerHTML='<i class="fa-solid fa-file-circle-check" style="color:var(--blue)"></i>';
+// Page detection via AJAX
+async function detectPages(file) {
+  const info    = document.getElementById('page-detection-info');
+  const loading = document.getElementById('page-loading');
+  const pcText  = document.getElementById('page-count-text');
+  const scText  = document.getElementById('sheet-count-text');
+
+  info.style.display    = 'block';
+  loading.style.display = 'flex';
+  pcText.textContent    = '';
+  scText.textContent    = '';
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('_token', '{{ csrf_token() }}');
+
+  try {
+    const res  = await fetch('{{ route("requests.detect-pages") }}', {
+      method: 'POST',
+      body:   formData,
+    });
+    const data = await res.json();
+    loading.style.display = 'none';
+
+    if (data.pages && data.pages > 0) {
+      document.getElementById('detected_pages_input').value = data.pages;
+      pcText.textContent = `📄 Detected ${data.pages} page${data.pages>1?'s':''} in this file`;
+      updateSheetCount();
+    } else {
+      pcText.textContent = '⚠️ Could not detect pages — sheet count will equal copies.';
+      pcText.style.color = 'var(--orange)';
+    }
+  } catch(e) {
+    loading.style.display = 'none';
+    pcText.textContent = '⚠️ Page detection unavailable.';
+    pcText.style.color = 'var(--orange)';
+  }
 }
-const dz=document.getElementById('drop-zone');
-dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag-over')});
-dz.addEventListener('dragleave',()=>dz.classList.remove('drag-over'));
-dz.addEventListener('drop',e=>{
-  e.preventDefault();dz.classList.remove('drag-over');
-  if(e.dataTransfer.files.length){
-    document.getElementById('file-input').files=e.dataTransfer.files;
+
+function updateSheetCount() {
+  const pages  = parseInt(document.getElementById('detected_pages_input').value) || 0;
+  const copies = parseInt(document.querySelector('[name=copies]')?.value) || 1;
+  const scText = document.getElementById('sheet-count-text');
+  if (pages > 0 && scText) {
+    const total = pages * copies;
+    scText.textContent = `${pages} pages × ${copies} copies = ${total} sheets of paper will be used`;
+  }
+}
+
+// Update sheet count when copies changes
+document.querySelector('[name=copies]')?.addEventListener('input', updateSheetCount);
+
+function handleFile(input) {
+  if (!input.files || !input.files[0]) return;
+  const f = input.files[0];
+  document.getElementById('file-name-disp').textContent = f.name;
+  document.getElementById('file-size-disp').textContent = (f.size/1024/1024).toFixed(2)+' MB';
+  const fp = document.getElementById('file-preview');
+  fp.style.display = 'flex';
+  document.getElementById('drop-text').textContent = 'File selected:';
+  document.getElementById('drop-icon').innerHTML =
+    '<i class="fa-solid fa-file-circle-check" style="color:var(--blue)"></i>';
+
+  // Trigger page detection
+  const ext = f.name.split('.').pop().toLowerCase();
+  if (['pdf','doc','docx'].includes(ext)) {
+    detectPages(f);
+  } else {
+    // Images = 1 page
+    document.getElementById('detected_pages_input').value = 1;
+    const info = document.getElementById('page-detection-info');
+    info.style.display = 'block';
+    document.getElementById('page-count-text').textContent = '📄 Image file — 1 page detected';
+    document.getElementById('sheet-count-text').textContent = '';
+    updateSheetCount();
+  }
+}
+
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('drag-over');
+  if (e.dataTransfer.files.length) {
+    document.getElementById('file-input').files = e.dataTransfer.files;
     handleFile(document.getElementById('file-input'));
   }
 });
-function openModal(id){document.getElementById(id).classList.add('open')}
-function closeModal(id){document.getElementById(id).classList.remove('open')}
-function acceptTerms(m,c){document.getElementById(c).checked=true;closeModal(m)}
-document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open')}));
+
+function openModal(id) { document.getElementById(id).classList.add('open') }
+function closeModal(id) { document.getElementById(id).classList.remove('open') }
+function acceptTerms(m,c) { document.getElementById(c).checked=true; closeModal(m) }
+document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{
+  if(e.target===m) m.classList.remove('open')
+}));
 </script>
 @endpush
 @endsection

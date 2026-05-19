@@ -8,8 +8,8 @@ class ServiceRequest extends Model
     protected $fillable = [
         'request_number','user_id','service_type','status',
         'paper_size','copies','purpose',
-        'file_path','file_name','print_type','print_sides',
-        'document_type','duration_minutes',
+        'file_path','file_name','detected_pages','print_type','print_sides',
+        'document_type','duration_minutes','computer_id',
         'reviewed_by','reviewed_at','admin_note','total_price',
     ];
 

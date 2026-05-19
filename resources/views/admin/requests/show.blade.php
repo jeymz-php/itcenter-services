@@ -147,10 +147,14 @@
                   ['Submitted',  $sr->created_at->format('M d, Y g:i A'), 'fa-calendar'],
                 ];
                 if ($sr->service_type === 'printing') {
-                  $details[] = ['Paper Size', strtoupper($sr->paper_size), 'fa-expand'];
-                  $details[] = ['Copies',     $sr->copies.' copy/copies',  'fa-hashtag'];
-                  $details[] = ['Print Type', ucfirst(str_replace('_',' ',$sr->print_type??'')), 'fa-palette'];
-                  $details[] = ['File',       $sr->file_name, 'fa-file'];
+                    $details[] = ['Paper Size', strtoupper($sr->paper_size), 'fa-expand'];
+                    $details[] = ['Copies',     $sr->copies.' copy/copies',  'fa-hashtag'];
+                    if ($sr->detected_pages) {
+                        $details[] = ['Pages Detected', $sr->detected_pages.' page(s)', 'fa-file-lines'];
+                        $details[] = ['Total Sheets',   ($sr->detected_pages * $sr->copies).' sheet(s) of '.strtoupper($sr->paper_size), 'fa-layer-group'];
+                    }
+                    $details[] = ['Print Type', ucfirst(str_replace('_',' ',$sr->print_type??'')), 'fa-palette'];
+                    $details[] = ['File',       $sr->file_name, 'fa-file'];
                 } elseif ($sr->service_type === 'photocopy') {
                   $details[] = ['Paper Size', strtoupper($sr->paper_size), 'fa-expand'];
                   $details[] = ['Copies',     $sr->copies.' copy/copies',  'fa-hashtag'];

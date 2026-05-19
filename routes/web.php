@@ -17,6 +17,8 @@ use App\Http\Controllers\User\NotificationController as UserNotificationControll
 
 Route::middleware('auth')->get('/user/notifications/poll', [UserNotificationController::class, 'poll'])->name('user.notifications.poll');
 
+Route::post('/requests/detect-pages', [ServiceRequestController::class, 'detectPages'])->name('requests.detect-pages');
+
 // ── PUBLIC AUTH ──
 Route::get('/',          [AuthController::class, 'showLogin'])->name('login');
 Route::get('/login',     [AuthController::class, 'showLogin']);
@@ -155,3 +157,4 @@ Route::get('/public-request',         [GuestRequestController::class, 'index'])-
 Route::post('/public-request',        [GuestRequestController::class, 'store'])->name('public.request.store');
 Route::get('/public-request/success', [GuestRequestController::class, 'success'])->name('public.request.success');
 Route::get('/track',                  [GuestRequestController::class, 'track'])->name('public.track');
+Route::get('/track/session-status/{guestRequest}', [GuestRequestController::class, 'publicSessionStatus'])->name('public.session-status');

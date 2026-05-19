@@ -25,29 +25,45 @@ class ServiceRequestController extends Controller
             'terms'      => 'accepted',
         ]);
 
-        $filePath = $request->file('file')->store('service_files', 'public');
-        $fileName = $request->file('file')->getClientOriginalName();
+        $uploadedFile  = $request->file('file');
+        $detectedPages = \App\Services\FilePageDetector::detect($uploadedFile);
+        $copies        = (int) $request->copies;
+
+        // Total sheets = pages × copies
+        $totalSheets = $detectedPages ? ($detectedPages * $copies) : $copies;
+
+        $filePath = $uploadedFile->store('service_files', 'public');
+        $fileName = $uploadedFile->getClientOriginalName();
 
         $sr = ServiceRequest::create([
             'request_number' => ServiceRequest::generateNumber(),
             'user_id'        => Auth::id(),
             'service_type'   => 'printing',
             'paper_size'     => $request->paper_size,
-            'copies'         => $request->copies,
+            'copies'         => $copies,
             'print_type'     => $request->print_type,
             'purpose'        => $request->purpose,
             'file_path'      => $filePath,
             'file_name'      => $fileName,
+            'detected_pages' => $detectedPages,
         ]);
 
         AdminNotification::notify(
             'new_print_request', 'New Printing Request',
-            Auth::user()->full_name." submitted printing request ({$sr->request_number}).",
-            Auth::user(), route('admin.service-requests.index'), 'fa-print'
+            Auth::user()->full_name." submitted printing request ({$sr->request_number})."
+            .($detectedPages ? " File has {$detectedPages} page(s) × {$copies} copies = {$totalSheets} sheet(s)." : ''),
+            Auth::user(),
+            route('admin.service-requests.index'),
+            'fa-print'
         );
 
-        return redirect()->route('dashboard')
-               ->with('success', "Printing request {$sr->request_number} submitted!");
+        $msg = "Printing request {$sr->request_number} submitted!";
+        if ($detectedPages) {
+            $msg .= " Detected {$detectedPages} page(s) × {$copies} copies = {$totalSheets} sheet(s) of "
+                . strtoupper($request->paper_size) . " paper.";
+        }
+
+        return redirect()->route('dashboard')->with('success', $msg);
     }
 
     public function photocopy() {
@@ -112,9 +128,15 @@ class ServiceRequestController extends Controller
                ->with('success', "Research request {$sr->request_number} submitted!");
     }
 
-    public function history() {
-        $requests = ServiceRequest::where('user_id', Auth::id())
-                                  ->latest()->paginate(15);
+    public function history(Request $request) {
+        $query = ServiceRequest::where('user_id', Auth::id())
+                            ->with(['computer','computerSession']);
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $requests = $query->latest()->paginate(10)->withQueryString();
         return view('user.requests.history', compact('requests'));
     }
 
@@ -140,5 +162,18 @@ class ServiceRequestController extends Controller
         ]);
 
         return back()->with('success', "Extension request for {$request->extend_minutes} minutes submitted to admin.");
+    }
+
+    public function detectPages(Request $request) {
+        $request->validate([
+            'file' => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240',
+        ]);
+
+        $pages = \App\Services\FilePageDetector::detect($request->file('file'));
+
+        return response()->json([
+            'pages'   => $pages,
+            'success' => $pages !== null,
+        ]);
     }
 }

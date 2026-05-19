@@ -82,9 +82,12 @@ class GuestRequestController extends Controller
             'duration_minutes' => $request->duration_minutes,
         ];
 
+        // Inside store() after file upload in GuestRequestController
         if ($request->hasFile('file')) {
-            $data['file_path'] = $request->file('file')->store('service_files','public');
-            $data['file_name'] = $request->file('file')->getClientOriginalName();
+            $uploadedFile          = $request->file('file');
+            $data['file_path']     = $uploadedFile->store('service_files','public');
+            $data['file_name']     = $uploadedFile->getClientOriginalName();
+            $data['detected_pages']= \App\Services\FilePageDetector::detect($uploadedFile);
         }
 
         $gr = GuestRequest::create($data);
@@ -109,10 +112,36 @@ class GuestRequestController extends Controller
     }
 
     public function track(Request $request) {
-        $gr = null;
+        $gr      = null;
+        $session = null;
+
         if ($request->filled('number')) {
-            $gr = GuestRequest::where('request_number', $request->number)->first();
+            $gr = GuestRequest::where('request_number', $request->number)
+                            ->with('computer','computerSession.computer')
+                            ->first();
+            if ($gr) {
+                $session = $gr->computerSession;
+            }
         }
-        return view('public.track', compact('gr'));
+
+        return view('public.track', compact('gr','session'));
+    }
+
+    public function publicSessionStatus(GuestRequest $guestRequest) {
+        $session = $guestRequest->computerSession;
+        if (!$session || !in_array($session->status, ['active','extended'])) {
+            return response()->json(['active' => false]);
+        }
+        return response()->json([
+            'active'            => true,
+            'remaining_seconds' => $session->remaining_seconds,
+            'ends_at'           => $session->ends_at?->format('g:i A'),
+            'status'            => $session->status,
+            'computer'          => $session->computer?->name,
+            'duration_minutes'  => $session->duration_minutes,
+            'extended_minutes'  => $session->extended_minutes,
+            'total_minutes'     => $session->total_minutes,
+            'started_at'        => $session->started_at?->format('g:i A'),
+        ]);
     }
 }

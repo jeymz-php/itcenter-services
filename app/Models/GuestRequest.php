@@ -8,7 +8,7 @@ class GuestRequest extends Model
     protected $fillable = [
         'request_number','role','first_name','last_name','email',
         'id_number','campus','service_type','status',
-        'paper_size','copies','file_path','file_name',
+        'paper_size','copies','file_path','file_name','detected_pages',
         'print_type','purpose','duration_minutes',
         'computer_id','reviewed_by','reviewed_at','admin_note',
     ];

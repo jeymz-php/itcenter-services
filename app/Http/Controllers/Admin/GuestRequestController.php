@@ -85,15 +85,23 @@ class GuestRequestController extends Controller
     public function complete(GuestRequest $guestRequest) {
         $this->guard();
         $guestRequest->update(['status' => 'completed']);
-        // Reduce paper stock
-        if (in_array($guestRequest->service_type,['printing','photocopy'])
-            && $guestRequest->paper_size && $guestRequest->copies) {
-            $item = InventoryItem::where('category','paper_size')
-                                 ->where('value',$guestRequest->paper_size)->first();
+
+        if (in_array($guestRequest->service_type, ['printing','photocopy']) && $guestRequest->paper_size) {
+            $item = \App\Models\InventoryItem::where('category','paper_size')
+                                            ->where('value', $guestRequest->paper_size)->first();
             if ($item && $item->stock > 0) {
-                $item->decrement('stock', min($guestRequest->copies, $item->stock));
+                if ($guestRequest->service_type === 'printing'
+                    && $guestRequest->detected_pages
+                    && $guestRequest->copies) {
+                    $reduce = (int)$guestRequest->detected_pages * (int)$guestRequest->copies;
+                } else {
+                    $reduce = (int)($guestRequest->copies ?? 0);
+                }
+                $reduce = min($reduce, (int)$item->stock);
+                if ($reduce > 0) $item->decrement('stock', $reduce);
             }
         }
+
         return back()->with('success', "Marked as completed.");
     }
 

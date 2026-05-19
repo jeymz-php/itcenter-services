@@ -202,16 +202,26 @@ class ServiceRequestController extends Controller
         ]);
     }
 
-    private function reduceStock(ServiceRequest $sr): void {
+    private function reduceStock(ServiceRequest $sr): void
+    {
         if (!in_array($sr->service_type, ['printing','photocopy'])) return;
-        if (!$sr->paper_size || !$sr->copies) return;
+        if (!$sr->paper_size) return;
 
         $item = \App\Models\InventoryItem::where('category','paper_size')
                                         ->where('value', $sr->paper_size)
                                         ->first();
-        if ($item && $item->stock > 0) {
-            $reduce = min((int)$sr->copies, (int)$item->stock);
-            $item->decrement('stock', $reduce);
+        if (!$item || $item->stock <= 0) return;
+
+        // For printing: pages × copies; for photocopy: just copies
+        if ($sr->service_type === 'printing' && $sr->detected_pages && $sr->copies) {
+            $reduce = (int)$sr->detected_pages * (int)$sr->copies;
+        } elseif ($sr->copies) {
+            $reduce = (int)$sr->copies;
+        } else {
+            return;
         }
+
+        $reduce = min($reduce, (int)$item->stock);
+        $item->decrement('stock', $reduce);
     }
 }
