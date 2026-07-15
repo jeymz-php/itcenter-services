@@ -118,5 +118,18 @@ function pollNotifications(){
 
 // Poll every 8 seconds for real-time feel
 setInterval(pollNotifications, 8000);
+
+function pollMessageBadge(){
+  fetch('{{ route("admin.messages.unread-count") }}')
+    .then(r=>r.json())
+    .then(data=>{
+      const b = document.getElementById('sb-msg-badge');
+      if (!b) return;
+      if (data.count > 0) { b.textContent = data.count; b.style.display='inline-block'; }
+      else { b.style.display = 'none'; }
+    })
+    .catch(()=>{});
+}
+setInterval(pollMessageBadge, 8000);
 </script>
 @endpush

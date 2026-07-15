@@ -49,6 +49,15 @@ Route::middleware('auth')->group(function () {
     Route::post('/requests/research',  [ServiceRequestController::class, 'storeResearch'])->name('requests.research.store');
     Route::get('/requests/history',    [ServiceRequestController::class, 'history'])->name('requests.history');
     Route::post('/requests/{serviceRequest}/request-extend', [ServiceRequestController::class, 'requestExtend'])->name('requests.request-extend');
+
+    // Messages
+    Route::get('/messages',              [App\Http\Controllers\User\MessageController::class, 'index'])->name('user.messages.index');
+    Route::post('/messages/send',        [App\Http\Controllers\User\MessageController::class, 'send'])->name('user.messages.send');
+    Route::get('/messages/poll',         [App\Http\Controllers\User\MessageController::class, 'poll'])->name('user.messages.poll');
+    Route::get('/messages/unread-count', [App\Http\Controllers\User\MessageController::class, 'unreadCount'])->name('user.messages.unread-count');
+
+    // PDF report
+    Route::get('/requests/{serviceRequest}/report', [ServiceRequestController::class, 'downloadReport'])->name('requests.report');
 });
 
 // ── ADMIN AUTH ──
@@ -65,6 +74,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
     // Dashboard
     Route::get('/dashboard', [AdminAuthController::class, 'dashboard'])->name('dashboard');
+
+    // Messages
+    Route::get('/messages',              [App\Http\Controllers\Admin\MessageController::class, 'index'])->name('messages.index');
+    Route::post('/messages/send',        [App\Http\Controllers\Admin\MessageController::class, 'send'])->name('messages.send');
+    Route::get('/messages/poll',         [App\Http\Controllers\Admin\MessageController::class, 'poll'])->name('messages.poll');
+    Route::get('/messages/unread-count', [App\Http\Controllers\Admin\MessageController::class, 'unreadCount'])->name('messages.unread-count');
 
     // Notifications
     Route::get('/notifications',               [NotificationController::class, 'index'])->name('notifications');

@@ -274,9 +274,10 @@ tr:hover td{background:var(--g50)}
 /* ── MOBILE RESPONSIVE ── */
 @media(max-width:768px){
   /* Auth pages */
-  .auth-wrap{grid-template-columns:1fr!important;max-width:100%!important;border-radius:16px;max-height:none!important}
+  body.auth-page{overflow-y:auto!important;overflow-x:hidden;height:auto!important;min-height:100vh;display:block!important;padding:24px 16px}
+  .auth-wrap{grid-template-columns:1fr!important;max-width:100%!important;border-radius:16px;max-height:none!important;margin:0 auto}
   .panel-left{display:none!important}
-  .panel-right{padding:28px 22px 24px!important}
+  .panel-right{padding:28px 22px 24px!important;overflow-y:visible!important}
   .auth-wrap.admin-card{max-width:100%!important}
 
   /* Dashboard */
@@ -309,6 +310,18 @@ tr:hover td{background:var(--g50)}
   /* Profile grid */
   [style*="grid-template-columns:320px"]{grid-template-columns:1fr!important}
   [style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr!important}
+
+  /* ── FIX: allow the whole page to scroll on mobile ──
+     body.dash-page and .dash-wrap are locked to overflow:hidden for the
+     desktop app-shell (fixed-height layout, only .content scrolls). On
+     mobile the layout switches to normal document flow (.main becomes
+     height:auto above), but these two ancestors were never unlocked —
+     so anything taller than one screen got clipped with nothing left to
+     scroll it. This restores normal page scrolling on mobile. */
+  html{overflow-x:hidden}
+  body.dash-page{overflow-y:auto!important;overflow-x:hidden;height:auto!important}
+  .dash-wrap{overflow:visible!important;width:100%!important;height:auto!important}
+  .content{overflow-y:visible!important;overflow-x:hidden}
 }
 
 /* Mobile sidebar hamburger */
@@ -347,6 +360,52 @@ tr:hover td{background:var(--g50)}
   animation: fadeUp .35s cubic-bezier(.16,1,.3,1);
   transition: opacity .3s;
 }
+
+/* ── MESSAGING / CHAT UI ── */
+.chat-wrap{display:flex;background:var(--white);border-radius:14px;border:1.5px solid var(--gray200);box-shadow:var(--shadow-sm);overflow:hidden;height:calc(100vh - 190px);min-height:420px;position:relative}
+.chat-side{width:280px;flex-shrink:0;border-right:1px solid var(--gray200);display:flex;flex-direction:column;overflow-y:auto;background:var(--gray100)}
+.chat-side-hd{padding:14px 16px;font-size:.8rem;font-weight:800;color:var(--gray800);border-bottom:1px solid var(--gray200);background:var(--white);flex-shrink:0}
+.chat-list-item{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;text-decoration:none;border-bottom:1px solid var(--gray200);transition:background .15s}
+.chat-list-item:hover{background:var(--g50)}
+.chat-list-item.active{background:var(--g100)}
+.chat-list-avatar{width:38px;height:38px;border-radius:50%;background:var(--g500);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.85rem;flex-shrink:0}
+.chat-list-name{font-size:.8rem;font-weight:700;color:var(--gray800)}
+.chat-list-preview{font-size:.71rem;color:var(--gray600);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px}
+.chat-list-time{font-size:.62rem;color:var(--gray400);margin-left:auto;flex-shrink:0;white-space:nowrap}
+.chat-list-badge{background:var(--red);color:#fff;font-size:.6rem;font-weight:800;padding:2px 6px;border-radius:10px;margin-left:6px}
+.chat-main{flex:1;display:flex;flex-direction:column;min-width:0}
+.chat-header{padding:14px 18px;border-bottom:1px solid var(--gray200);display:flex;align-items:center;gap:10px;background:var(--white);flex-shrink:0}
+.chat-back{display:none;background:none;border:none;color:var(--gray600);font-size:1rem;cursor:pointer;padding:4px 8px 4px 0}
+.chat-messages{flex:1;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:10px;background:var(--offwhite)}
+.chat-bubble-row{display:flex}
+.chat-bubble-row.me{justify-content:flex-end}
+.chat-bubble{max-width:72%;padding:10px 13px;border-radius:14px;font-size:.8rem;line-height:1.5;box-shadow:var(--shadow-sm);word-wrap:break-word}
+.chat-bubble-row.them .chat-bubble{background:var(--white);color:var(--gray800);border-bottom-left-radius:4px;border:1px solid var(--gray200)}
+.chat-bubble-row.me .chat-bubble{background:linear-gradient(135deg,var(--g700),var(--g500));color:#fff;border-bottom-right-radius:4px}
+.cb-meta{font-size:.63rem;opacity:.65;margin-top:4px}
+.chat-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--gray400);gap:8px;padding:20px}
+.chat-input-bar{border-top:1px solid var(--gray200);padding:12px 14px;display:flex;gap:8px;align-items:flex-end;background:var(--white);flex-shrink:0}
+.chat-input-bar textarea{flex:1;resize:none;border:1.5px solid var(--gray200);border-radius:12px;padding:10px 13px;font-family:inherit;font-size:.8rem;max-height:100px;outline:none;background:var(--gray100)}
+.chat-input-bar textarea:focus{border-color:var(--g500);background:var(--white)}
+.chat-send-btn{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--g700),var(--g500));color:#fff;border:none;cursor:pointer;flex-shrink:0;font-size:.85rem}
+.chat-send-btn:hover{opacity:.9}
+.chat-context{padding:8px 14px;background:var(--g50);border-bottom:1px solid var(--gray200);font-size:.72rem;display:flex;align-items:center;gap:6px;flex-shrink:0}
+.chat-context select{border:none;background:none;font-size:.72rem;font-weight:700;color:var(--g700);cursor:pointer;outline:none}
+
+@media(max-width:768px){
+  .chat-wrap{height:calc(100vh - 230px);border-radius:10px}
+  .chat-side{position:absolute;inset:0;width:100%;z-index:5}
+  .chat-wrap.conv-open .chat-side{display:none}
+  .chat-wrap:not(.conv-open) .chat-main{display:none}
+  .chat-back{display:inline-flex;align-items:center;justify-content:center}
+  .chat-bubble{max-width:85%}
+
+  /* Grid consistency fixes for pages that used raw 3- and 4-column inline
+     grids (e.g. research.blade.php's paper-size/duration pickers) that the
+     existing responsive rules above didn't catch */
+  [style*="grid-template-columns:repeat(3,1fr)"],
+  [style*="grid-template-columns:repeat(4,1fr)"]{grid-template-columns:repeat(2,1fr)!important}
+}
 </style>
 @stack('styles')
 </head>
@@ -356,6 +415,64 @@ tr:hover td{background:var(--g50)}
 <div class="bg-noise"></div>
 @endif
 @yield('content')
+
+@auth
+<div id="user-toast-container"></div>
+<script>
+(function(){
+  let lastNotifId = {{ \App\Models\AdminNotification::max('id') ?? 0 }};
+
+  function playPing(){
+    try{
+      const c=new(window.AudioContext||window.webkitAudioContext)();
+      const o=c.createOscillator(), g=c.createGain();
+      o.connect(g); g.connect(c.destination);
+      o.type='sine'; o.frequency.value=990;
+      g.gain.setValueAtTime(0.25,c.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.25);
+      o.start(); o.stop(c.currentTime+0.25);
+    }catch(e){}
+  }
+
+  function showUserToast(title, message, icon){
+    const c = document.getElementById('user-toast-container');
+    if (!c) return;
+    const t = document.createElement('div');
+    t.className = 'user-toast';
+    t.innerHTML = `
+      <div style="width:34px;height:34px;border-radius:9px;flex-shrink:0;background:var(--g100);display:flex;align-items:center;justify-content:center;color:var(--g600);font-size:.9rem">
+        <i class="fa-solid ${icon||'fa-bell'}"></i>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:.8rem;font-weight:800;color:var(--gray800);margin-bottom:2px">${title}</div>
+        <div style="font-size:.73rem;color:var(--gray600);line-height:1.4">${message}</div>
+      </div>
+      <button onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--gray400);cursor:pointer;font-size:.9rem;flex-shrink:0;padding:2px">
+        <i class="fa-solid fa-xmark"></i>
+      </button>`;
+    c.appendChild(t);
+    setTimeout(()=>{ if(t.parentNode){ t.style.opacity='0'; setTimeout(()=>t.remove(),300); } }, 6000);
+  }
+
+  function pollUserNotifications(){
+    fetch('{{ route("user.notifications.poll") }}?last_id=' + lastNotifId)
+      .then(r => r.json())
+      .then(data => {
+        if (data.notifications && data.notifications.length){
+          data.notifications.forEach(n => {
+            playPing();
+            showUserToast(n.title, n.message, n.icon);
+          });
+        }
+        if (data.last_id) lastNotifId = data.last_id;
+      })
+      .catch(()=>{});
+  }
+  setInterval(pollUserNotifications, 6000);
+})();
+</script>
+@endauth
+
 @stack('scripts')
 </body>
 </html>

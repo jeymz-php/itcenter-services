@@ -7,6 +7,7 @@ use App\Models\InventoryItem;
 use App\Models\AdminNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class ServiceRequestController extends Controller
 {
@@ -175,5 +176,15 @@ class ServiceRequestController extends Controller
             'pages'   => $pages,
             'success' => $pages !== null,
         ]);
+    }
+
+    public function downloadReport(ServiceRequest $serviceRequest) {
+        if ($serviceRequest->user_id !== Auth::id()) abort(403);
+
+        $r = $serviceRequest->load(['user','computer','computerSession','admin']);
+
+        $pdf = Pdf::loadView('user.requests.pdf-report', compact('r'))->setPaper('a4', 'portrait');
+
+        return $pdf->download("Report-{$r->request_number}.pdf");
     }
 }

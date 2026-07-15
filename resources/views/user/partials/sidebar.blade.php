@@ -74,6 +74,15 @@
        class="sb-link {{ request()->routeIs('profile') ? 'active' : '' }}">
       <i class="fa-solid fa-user"></i> My Profile
     </a>
+
+    <div class="sb-section">Support</div>
+    <a href="{{ route('user.messages.index') }}"
+       class="sb-link {{ request()->routeIs('user.messages.*') ? 'active' : '' }}">
+      <i class="fa-solid fa-comments"></i> Messages
+      @php $unreadMsgs = \App\Models\Message::where('user_id',$user->id)->where('sender_type','admin')->where('is_read_by_user',false)->count(); @endphp
+      @if($unreadMsgs)<span class="nb" id="sb-msg-badge">{{ $unreadMsgs }}</span>@endif
+    </a>
+
     @if($user->status === 'deactivated')
     <a href="{{ route('profile') }}" class="sb-link" style="color:rgba(171,71,188,.8)">
       <i class="fa-solid fa-user-check"></i> Request Reactivation

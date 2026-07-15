@@ -116,6 +116,13 @@
        class="sb-link {{ request()->routeIs('admin.reports.*') ? 'active' : '' }}">
       <i class="fa-solid fa-chart-line"></i> Reports
     </a>
+    <div class="sb-section">Communication</div>
+    <a href="{{ route('admin.messages.index') }}"
+       class="sb-link {{ request()->routeIs('admin.messages.*') ? 'active' : '' }}">
+      <i class="fa-solid fa-comments"></i> Messages
+      @php $unreadMsgs = \App\Models\Message::unreadByAdmin()->pluck('user_id')->unique()->count(); @endphp
+      @if($unreadMsgs)<span class="nb" id="sb-msg-badge">{{ $unreadMsgs }}</span>@endif
+    </a>
     <a href="#" class="sb-link"><i class="fa-solid fa-star"></i> Review Ratings</a>
     <a href="{{ route('admin.notifications') }}"
        class="sb-link {{ request()->routeIs('admin.notifications') ? 'active' : '' }}">

@@ -131,6 +131,11 @@
           <i class="fa-solid fa-eye"></i> View Details
         </button>
 
+        <a href="{{ route('requests.report', $r->id) }}" target="_blank"
+          style="background:var(--white);color:var(--g700);border:1.5px solid var(--g300);border-radius:8px;padding:7px 14px;font-size:.75rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;white-space:nowrap;text-decoration:none">
+          <i class="fa-solid fa-file-pdf"></i> PDF Report
+        </a>
+
         @if($r->status === 'rejected' && $r->admin_note)
         <div style="font-size:.68rem;color:var(--red);background:var(--red-bg);border-radius:6px;padding:5px 9px;max-width:180px;text-align:right">
           <i class="fa-solid fa-circle-xmark"></i> {{ Str::limit($r->admin_note, 50) }}
