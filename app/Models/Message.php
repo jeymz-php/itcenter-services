@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 class Message extends Model
 {
     protected $fillable = [
-        'user_id','service_request_id','sender_type','sender_admin_id',
+        'user_id','chat_session_id','service_request_id','sender_type','sender_admin_id',
         'body','is_read_by_user','is_read_by_admin',
     ];
 
@@ -16,6 +16,7 @@ class Message extends Model
     ];
 
     public function user() { return $this->belongsTo(User::class); }
+    public function chatSession() { return $this->belongsTo(ChatSession::class); }
     public function serviceRequest() { return $this->belongsTo(ServiceRequest::class); }
     public function senderAdmin() { return $this->belongsTo(Admin::class, 'sender_admin_id'); }
 
@@ -25,6 +26,11 @@ class Message extends Model
 
     public function scopeUnreadByUser($q) {
         return $q->where('sender_type', 'admin')->where('is_read_by_user', false);
+    }
+
+    // Only messages belonging to a still-open chat session (i.e. currently visible)
+    public function scopeInOpenSession($q) {
+        return $q->whereHas('chatSession', fn($s) => $s->whereNull('closed_at'));
     }
 
     public function getSenderNameAttribute(): string {

@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 class Computer extends Model
 {
     protected $fillable = [
-        'name','specs','status','deactivation_note','sort_order'
+        'name','campus','specs','status','deactivation_note','sort_order'
     ];
 
     public function sessions() {

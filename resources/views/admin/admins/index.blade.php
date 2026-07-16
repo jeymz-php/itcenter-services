@@ -26,7 +26,14 @@
             <div class="sw"><select name="role" class="fs" required><option value="admin">Admin</option><option value="super_admin">Super Admin</option></select></div>
           </div>
         </div>
-        <div class="fg"><div class="flabel">Password</div><input type="password" name="password" class="fc" placeholder="Min 8 characters" required></div>
+        <div class="fg">
+          <div class="flabel">Password</div>
+          <div class="iw">
+            <i class="fa-solid fa-lock ii"></i>
+            <input type="password" name="password" id="newAdminPass" class="fc" placeholder="Min 8 characters" required style="padding-left:32px">
+            <button type="button" class="eye-btn" onclick="toggleEye('newAdminPass','newAdminEye')"><i class="fa-solid fa-eye" id="newAdminEye"></i></button>
+          </div>
+        </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="modal-btn secondary" onclick="closeModal('addAdminModal')">Cancel</button>
@@ -105,5 +112,10 @@
 function openModal(id){document.getElementById(id).classList.add('open')}
 function closeModal(id){document.getElementById(id).classList.remove('open')}
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open')}));
+function toggleEye(fid,eid){
+  const f=document.getElementById(fid),i=document.getElementById(eid);
+  f.type=f.type==='password'?'text':'password';
+  i.className=f.type==='text'?'fa-solid fa-eye-slash':'fa-solid fa-eye';
+}
 </script>
 @endpush

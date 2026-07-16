@@ -336,7 +336,7 @@ body{background:var(--offwhite)}
           <div class="fg">
             <div class="flabel"><i class="fa-solid fa-building-columns"></i> Campus <span style="color:var(--red)">*</span></div>
             <div class="sw">
-              <select name="campus" class="fs" required>
+              <select name="campus" id="guest-campus-select" class="fs" required>
                 <option value="" disabled selected>Select Campus</option>
                 @foreach(config('campuses') as $k => $v)
                 <option value="{{ $k }}" {{ old('campus')===$k?'selected':'' }}>{{ $v }}</option>
@@ -440,7 +440,7 @@ body{background:var(--offwhite)}
               <div class="flabel"><i class="fa-solid fa-expand" style="color:var(--blue)"></i> Paper Size <span style="color:var(--red)">*</span></div>
               <div class="paper-grid">
                 @foreach($paperSizes as $ps)
-                <label style="cursor:pointer{{ $ps->stock<=0?' opacity:.5;pointer-events:none':'' }}">
+                <label data-campus="{{ $ps->campus }}" class="campus-filtered-opt" style="cursor:pointer{{ $ps->stock<=0?' opacity:.5;pointer-events:none':'' }}">
                   <input type="radio" name="paper_size" value="{{ $ps->value }}" style="display:none" {{ old('paper_size')===$ps->value?'checked':'' }} {{ $ps->stock<=0?'disabled':'' }}>
                   <div class="paper-opt" style="border-color:var(--gray200)">
                     <div style="font-size:.82rem;font-weight:700">{{ explode(' ',$ps->name)[0] }}</div>
@@ -523,9 +523,9 @@ body{background:var(--offwhite)}
                     <div class="flabel"><i class="fa-solid fa-clock"></i> Duration <span style="color:var(--red)">*</span></div>
                     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
                     @foreach($durations as $d)
-                    <label style="cursor:pointer">
-                        <input type="radio" name="duration_minutes" value="{{ $d->value }}" style="display:none"
-                        {{ old('duration_minutes')==$d->value?'checked':'' }}>
+                    <label data-campus="{{ $d->campus }}" class="campus-filtered-opt" style="cursor:pointer">
+                      <input type="radio" name="duration_minutes" value="{{ $d->value }}" style="display:none"
+                      {{ old('duration_minutes')==$d->value?'checked':'' }}>
                         <div style="border:1.5px solid var(--gray200);border-radius:12px;padding:14px 8px;text-align:center;background:var(--white);transition:all .2s" class="dur-pub-opt">
                         <div style="font-size:1.3rem;font-weight:800;color:var(--g700)">{{ $d->value }}</div>
                         <div style="font-size:.68rem;color:var(--gray400);margin-top:2px">minutes</div>
@@ -627,6 +627,24 @@ body{background:var(--offwhite)}
 <script>
 let currentRole = '{{ old('role','') }}';
 let currentSvc  = '{{ old('service_type','') }}';
+
+// Paper size / PC duration options are loaded for every campus at once (the guest
+// picks their campus later in this same form), so only reveal the ones matching
+// whichever campus is currently selected.
+function filterOptionsByCampus() {
+  const sel = document.getElementById('guest-campus-select');
+  const campus = sel ? sel.value : '';
+  document.querySelectorAll('.campus-filtered-opt').forEach(opt => {
+    const match = campus && opt.dataset.campus === campus;
+    opt.style.display = match ? '' : 'none';
+    if (!match) {
+      const input = opt.querySelector('input[type=radio]');
+      if (input && input.checked) input.checked = false;
+    }
+  });
+}
+document.getElementById('guest-campus-select')?.addEventListener('change', filterOptionsByCampus);
+document.addEventListener('DOMContentLoaded', filterOptionsByCampus);
 
 // Role selection
 function selectRole(role, el) {

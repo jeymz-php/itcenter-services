@@ -11,11 +11,21 @@ use Illuminate\Http\Request;
 
 class GuestRequestController extends Controller
 {
-    private function guard() { if (!session('admin')) abort(403); }
+    private function guard() { if (!session('admin')) abort(403); return session('admin'); }
+
+    // Regular admins are restricted to guest requests from their own campus; super admins see everyone.
+    private function assertInScope($admin, GuestRequest $gr) {
+        if ($admin->role !== 'super_admin' && $gr->campus !== $admin->campus) {
+            abort(403, 'You can only manage guest requests from your own campus.');
+        }
+    }
 
     public function index(Request $request) {
-        $this->guard();
+        $admin = $this->guard();
         $query = GuestRequest::query();
+        if ($admin->role !== 'super_admin') {
+            $query->where('campus', $admin->campus);
+        }
         if ($request->search) {
             $s = $request->search;
             $query->where(function($q) use ($s) {
@@ -30,19 +40,24 @@ class GuestRequestController extends Controller
         if ($request->role)         $query->where('role', $request->role);
 
         $requests = $query->latest()->paginate(20)->withQueryString();
+
+        $countsQuery = GuestRequest::query();
+        if ($admin->role !== 'super_admin') $countsQuery->where('campus', $admin->campus);
+        $countsBase = $countsQuery->get();
         $counts = [
-            'all'        => GuestRequest::count(),
-            'pending'    => GuestRequest::where('status','pending')->count(),
-            'approved'   => GuestRequest::where('status','approved')->count(),
-            'processing' => GuestRequest::where('status','processing')->count(),
-            'completed'  => GuestRequest::where('status','completed')->count(),
-            'rejected'   => GuestRequest::where('status','rejected')->count(),
+            'all'        => $countsBase->count(),
+            'pending'    => $countsBase->where('status','pending')->count(),
+            'approved'   => $countsBase->where('status','approved')->count(),
+            'processing' => $countsBase->where('status','processing')->count(),
+            'completed'  => $countsBase->where('status','completed')->count(),
+            'rejected'   => $countsBase->where('status','rejected')->count(),
         ];
         return view('admin.guest-requests.index', compact('requests','counts'));
     }
 
     public function show(GuestRequest $guestRequest) {
-        $this->guard();
+        $admin = $this->guard();
+        $this->assertInScope($admin, $guestRequest);
         $computers = $guestRequest->service_type === 'research'
             ? Computer::where('status','available')->orderBy('sort_order')->get()
             : collect();
@@ -55,7 +70,8 @@ class GuestRequestController extends Controller
     }
 
     public function approve(GuestRequest $guestRequest) {
-        $this->guard();
+        $admin = $this->guard();
+        $this->assertInScope($admin, $guestRequest);
         $guestRequest->update([
             'status'      => 'approved',
             'reviewed_by' => session('admin')->id,
@@ -65,7 +81,8 @@ class GuestRequestController extends Controller
     }
 
     public function reject(Request $request, GuestRequest $guestRequest) {
-        $this->guard();
+        $admin = $this->guard();
+        $this->assertInScope($admin, $guestRequest);
         $request->validate(['admin_note' => 'required|string|max:500']);
         $guestRequest->update([
             'status'      => 'rejected',
@@ -77,13 +94,15 @@ class GuestRequestController extends Controller
     }
 
     public function processing(GuestRequest $guestRequest) {
-        $this->guard();
+        $admin = $this->guard();
+        $this->assertInScope($admin, $guestRequest);
         $guestRequest->update(['status' => 'processing']);
         return back()->with('success', "Marked as processing.");
     }
 
     public function complete(GuestRequest $guestRequest) {
-        $this->guard();
+        $admin = $this->guard();
+        $this->assertInScope($admin, $guestRequest);
         $guestRequest->update(['status' => 'completed']);
 
         if (in_array($guestRequest->service_type, ['printing','photocopy']) && $guestRequest->paper_size) {
@@ -106,7 +125,8 @@ class GuestRequestController extends Controller
     }
 
     public function assignPC(Request $request, GuestRequest $guestRequest) {
-        $this->guard();
+        $admin = $this->guard();
+        $this->assertInScope($admin, $guestRequest);
         $request->validate(['computer_id' => 'required|exists:computers,id']);
 
         if ($guestRequest->service_type !== 'research') {
@@ -152,7 +172,8 @@ class GuestRequestController extends Controller
     }
 
     public function endSession(GuestRequest $guestRequest) {
-        $this->guard();
+        $admin = $this->guard();
+        $this->assertInScope($admin, $guestRequest);
         $session = $guestRequest->computerSession;
         if ($session) {
             $session->update(['status' => 'completed', 'ended_at' => now()]);
@@ -165,6 +186,8 @@ class GuestRequestController extends Controller
     }
 
     public function sessionStatus(GuestRequest $guestRequest) {
+        $admin = $this->guard();
+        $this->assertInScope($admin, $guestRequest);
         $session = $guestRequest->computerSession;
         if (!$session) return response()->json(['error' => 'No session'], 404);
         return response()->json([

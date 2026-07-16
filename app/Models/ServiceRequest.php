@@ -47,4 +47,29 @@ class ServiceRequest extends Model
     public function computerSession() {
         return $this->hasOne(ComputerSession::class);
     }
+    public function estimatedReceiptHeightPt(): float {
+        // Fixed chrome: logos, campus header, doc title, request/status block,
+        // customer block, reviewed-by block, barcode, footer note, page margins.
+        $height = 320;
+
+        // Service-detail rows vary by type
+        $height += match ($this->service_type) {
+            'printing'  => 6 * 12,
+            'photocopy' => 3 * 12,
+            'research'  => $this->computerSession ? 5 * 12 : 3 * 12,
+            default     => 3 * 12,
+        };
+
+        // Purpose text wraps roughly every 40 characters at this width/font
+        $purposeLines = max(1, (int) ceil(strlen((string) $this->purpose) / 40));
+        $height += $purposeLines * 12;
+
+        // Rejection note, if present, adds its own block
+        if ($this->status === 'rejected' && $this->admin_note) {
+            $noteLines = max(1, (int) ceil(strlen((string) $this->admin_note) / 40));
+            $height += 20 + ($noteLines * 12);
+        }
+
+        return $height;
+    }
 }

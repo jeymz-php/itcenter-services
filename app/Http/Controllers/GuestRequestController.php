@@ -9,11 +9,13 @@ use Illuminate\Http\Request;
 class GuestRequestController extends Controller
 {
     public function index() {
-        $paperSizes = InventoryItem::paperSizes();
-        $durations  = InventoryItem::pcDurations();
+        // The guest picks their campus inside this same form, so we can't scope the
+        // query server-side yet — load every active item across all campuses and let
+        // the page's JS show only the ones matching whichever campus gets selected.
+        $paperSizes = InventoryItem::where('category','paper_size')->where('is_active',true)->orderBy('sort_order')->get();
+        $durations  = InventoryItem::where('category','pc_duration')->where('is_active',true)->orderBy('sort_order')->get();
         return view('public.request', compact('paperSizes','durations'));
     }
-
     public function store(Request $request) {
         $request->validate([
             'role'         => 'required|in:student,faculty_staff,visitor',

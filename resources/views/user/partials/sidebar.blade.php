@@ -69,12 +69,6 @@
     </a>
     @endif
 
-    <div class="sb-section">Account</div>
-    <a href="{{ route('profile') }}"
-       class="sb-link {{ request()->routeIs('profile') ? 'active' : '' }}">
-      <i class="fa-solid fa-user"></i> My Profile
-    </a>
-
     <div class="sb-section">Support</div>
     <a href="{{ route('user.messages.index') }}"
        class="sb-link {{ request()->routeIs('user.messages.*') ? 'active' : '' }}">
@@ -83,22 +77,31 @@
       @if($unreadMsgs)<span class="nb" id="sb-msg-badge">{{ $unreadMsgs }}</span>@endif
     </a>
 
+    <div class="sb-section">Account</div>
+    <a href="{{ route('profile') }}"
+       class="sb-link {{ request()->routeIs('profile') ? 'active' : '' }}">
+      <i class="fa-solid fa-user"></i> My Profile
+    </a>
     @if($user->status === 'deactivated')
     <a href="{{ route('profile') }}" class="sb-link" style="color:rgba(171,71,188,.8)">
       <i class="fa-solid fa-user-check"></i> Request Reactivation
     </a>
     @endif
-  </nav>
 
-  <div style="padding:0 10px 12px">
-    <form action="{{ route('logout') }}" method="POST">
-      @csrf
-      <button type="submit" class="sb-link"
-        style="background:rgba(229,62,62,.12);color:#ff8080;border-radius:8px;width:100%;border:none;cursor:pointer">
-        <i class="fa-solid fa-right-from-bracket"></i> Logout
-      </button>
-    </form>
-  </div>
+    {{-- Logout lives inside .sb-nav on purpose: on mobile .sb-nav is hidden
+         behind the hamburger toggle, so Logout hides/shows together with
+         the rest of the nav instead of leaking out as its own row next to
+         the logo (that was the "double header" bug on mobile). --}}
+    <div style="padding:10px 10px 0">
+      <form action="{{ route('logout') }}" method="POST">
+        @csrf
+        <button type="submit" class="sb-link"
+          style="background:rgba(229,62,62,.12);color:#ff8080;border-radius:8px;width:100%;border:none;cursor:pointer">
+          <i class="fa-solid fa-right-from-bracket"></i> Logout
+        </button>
+      </form>
+    </div>
+  </nav>
 
   <div class="sb-footer">
     IT Services System<br>{{ config('campuses.'.$user->campus) }}

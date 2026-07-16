@@ -8,6 +8,7 @@ class InventoryItem extends Model
 {
     protected $fillable = [
         'category',
+        'campus',
         'name',
         'value',
         'price',
@@ -21,17 +22,22 @@ class InventoryItem extends Model
         'is_active' => 'boolean',
     ];
 
-    public static function paperSizes(): \Illuminate\Database\Eloquent\Collection
+    // $campus is required in practice (inventory is per-campus, not shared) but left
+    // nullable-tolerant here so a bad/missing campus just returns an empty list
+    // instead of throwing.
+    public static function paperSizes(?string $campus): \Illuminate\Database\Eloquent\Collection
     {
         return static::where('category', 'paper_size')
+                     ->where('campus', $campus)
                      ->where('is_active', true)
                      ->orderBy('sort_order')
                      ->get();
     }
 
-    public static function pcDurations(): \Illuminate\Database\Eloquent\Collection
+    public static function pcDurations(?string $campus): \Illuminate\Database\Eloquent\Collection
     {
         return static::where('category', 'pc_duration')
+                     ->where('campus', $campus)
                      ->where('is_active', true)
                      ->orderBy('sort_order')
                      ->get();

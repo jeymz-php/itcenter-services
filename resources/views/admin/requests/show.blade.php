@@ -127,6 +127,13 @@
         <div class="abox err" style="margin-bottom:14px"><i class="fa-solid fa-triangle-exclamation"></i> {{ $errors->first() }}</div>
       @endif
 
+      <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+        <a href="{{ route('admin.service-requests.report', $sr) }}" target="_blank"
+          style="background:var(--white);color:var(--g700);border:1.5px solid var(--g300);border-radius:8px;padding:8px 16px;font-size:.78rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;text-decoration:none">
+          <i class="fa-solid fa-file-pdf"></i> View Receipt
+        </a>
+      </div>
+
       <div style="display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start">
 
         {{-- LEFT: Request Info --}}

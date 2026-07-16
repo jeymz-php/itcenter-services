@@ -55,6 +55,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/messages/send',        [App\Http\Controllers\User\MessageController::class, 'send'])->name('user.messages.send');
     Route::get('/messages/poll',         [App\Http\Controllers\User\MessageController::class, 'poll'])->name('user.messages.poll');
     Route::get('/messages/unread-count', [App\Http\Controllers\User\MessageController::class, 'unreadCount'])->name('user.messages.unread-count');
+    Route::post('/messages/typing', [App\Http\Controllers\User\MessageController::class, 'typing'])->name('user.messages.typing');
+    Route::post('/messages/end-session', [App\Http\Controllers\User\MessageController::class, 'endSession'])->name('user.messages.end-session');
 
     // PDF report
     Route::get('/requests/{serviceRequest}/report', [ServiceRequestController::class, 'downloadReport'])->name('requests.report');
@@ -75,11 +77,16 @@ Route::prefix('admin')->name('admin.')->group(function () {
     // Dashboard
     Route::get('/dashboard', [AdminAuthController::class, 'dashboard'])->name('dashboard');
 
-    // Messages
-    Route::get('/messages',              [App\Http\Controllers\Admin\MessageController::class, 'index'])->name('messages.index');
-    Route::post('/messages/send',        [App\Http\Controllers\Admin\MessageController::class, 'send'])->name('messages.send');
-    Route::get('/messages/poll',         [App\Http\Controllers\Admin\MessageController::class, 'poll'])->name('messages.poll');
-    Route::get('/messages/unread-count', [App\Http\Controllers\Admin\MessageController::class, 'unreadCount'])->name('messages.unread-count');
+// ── MESSAGES ──
+Route::prefix('messages')->name('messages.')->group(function () {
+    Route::get('/',              [App\Http\Controllers\Admin\MessageController::class, 'index'])->name('index');
+    Route::post('/send',         [App\Http\Controllers\Admin\MessageController::class, 'send'])->name('send');
+    Route::get('/poll',          [App\Http\Controllers\Admin\MessageController::class, 'poll'])->name('poll');
+    Route::post('/typing',       [App\Http\Controllers\Admin\MessageController::class, 'typing'])->name('typing');
+    Route::get('/search-users',  [App\Http\Controllers\Admin\MessageController::class, 'searchUsers'])->name('search-users');
+    Route::get('/unread-count',  [App\Http\Controllers\Admin\MessageController::class, 'unreadCount'])->name('unread-count');
+    Route::post('/end-session', [App\Http\Controllers\Admin\MessageController::class, 'endSession'])->name('end-session');
+});
 
     // Notifications
     Route::get('/notifications',               [NotificationController::class, 'index'])->name('notifications');
@@ -128,6 +135,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/{serviceRequest}/extend-session',  [AdminServiceRequestController::class, 'extendSession'])->name('extend-session');
         Route::post('/{serviceRequest}/end-session',     [AdminServiceRequestController::class, 'endSession'])->name('end-session');
         Route::get('/{serviceRequest}/session-status',   [AdminServiceRequestController::class, 'sessionStatus'])->name('session-status');
+        Route::get('/{serviceRequest}/report', [AdminServiceRequestController::class, 'downloadReport'])->name('report');
     });
 
     // ── COMPUTERS ──

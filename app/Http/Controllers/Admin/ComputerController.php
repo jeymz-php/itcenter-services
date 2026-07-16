@@ -10,25 +10,44 @@ class ComputerController extends Controller
 {
     private function guard() {
         if (!session('admin')) abort(403);
+        return session('admin');
     }
 
-    public function index() {
-        $this->guard();
-        $computers = Computer::with('activeSession.user')
-                             ->orderBy('sort_order')
-                             ->get();
+    // Regular admins are restricted to computers in their own campus; super admins see everyone.
+    private function assertInScope($admin, Computer $computer) {
+        if ($admin->role !== 'super_admin' && $computer->campus !== $admin->campus) {
+            abort(403, 'You can only manage computers from your own campus.');
+        }
+    }
+
+    public function index(Request $request) {
+        $admin = $this->guard();
+        $query = Computer::with('activeSession.user');
+
+        if ($admin->role !== 'super_admin') {
+            $query->where('campus', $admin->campus);
+        } elseif ($request->campus) {
+            $query->where('campus', $request->campus);
+        }
+
+        $computers = $query->orderBy('campus')->orderBy('sort_order')->get();
         return view('admin.computers.index', compact('computers'));
     }
 
     public function store(Request $request) {
-        $this->guard();
+        $admin = $this->guard();
         $request->validate([
-            'name'  => 'required|string|max:50|unique:computers',
-            'specs' => 'nullable|string|max:300',
+            'name'   => 'required|string|max:50|unique:computers',
+            'specs'  => 'nullable|string|max:300',
+            'campus' => 'required|string',
         ]);
-        $max = Computer::max('sort_order') ?? 0;
+        // Regular admins can only add computers to their own campus, regardless of what was submitted
+        $campus = $admin->role === 'super_admin' ? $request->campus : $admin->campus;
+
+        $max = Computer::where('campus', $campus)->max('sort_order') ?? 0;
         Computer::create([
             'name'       => $request->name,
+            'campus'     => $campus,
             'specs'      => $request->specs,
             'status'     => 'available',
             'sort_order' => $max + 1,
@@ -37,7 +56,8 @@ class ComputerController extends Controller
     }
 
     public function update(Request $request, Computer $computer) {
-        $this->guard();
+        $admin = $this->guard();
+        $this->assertInScope($admin, $computer);
         $request->validate([
             'name'  => 'required|string|max:50|unique:computers,name,'.$computer->id,
             'specs' => 'nullable|string|max:300',
@@ -50,7 +70,8 @@ class ComputerController extends Controller
     }
 
     public function activate(Computer $computer) {
-        $this->guard();
+        $admin = $this->guard();
+        $this->assertInScope($admin, $computer);
         $computer->update([
             'status'            => 'available',
             'deactivation_note' => null,
@@ -59,7 +80,8 @@ class ComputerController extends Controller
     }
 
     public function deactivate(Request $request, Computer $computer) {
-        $this->guard();
+        $admin = $this->guard();
+        $this->assertInScope($admin, $computer);
         $request->validate(['note' => 'required|string|max:500']);
         $computer->update([
             'status'            => 'deactivated',
@@ -69,7 +91,8 @@ class ComputerController extends Controller
     }
 
     public function destroy(Computer $computer) {
-        $this->guard();
+        $admin = $this->guard();
+        $this->assertInScope($admin, $computer);
         if ($computer->status === 'in_use') {
             return back()->withErrors(['error' => 'Cannot delete a computer currently in use.']);
         }

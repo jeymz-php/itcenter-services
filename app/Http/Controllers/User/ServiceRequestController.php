@@ -11,8 +11,21 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class ServiceRequestController extends Controller
 {
+    public function downloadReport(ServiceRequest $serviceRequest) {
+        if ($serviceRequest->user_id !== Auth::id()) abort(403);
+
+        $r = $serviceRequest->load(['user','computer','computerSession','admin']);
+
+        $pdf = Pdf::loadView('user.requests.pdf-report', compact('r'))
+                ->setPaper([0, 0, 226.77, $r->estimatedReceiptHeightPt()]);
+
+        // Stream (not download) so it opens in a new tab for preview first —
+        // the browser's own PDF viewer provides the Download button from there.
+        return $pdf->stream("Receipt-{$r->request_number}.pdf");
+    }
+
     public function printing() {
-        $paperSizes = InventoryItem::paperSizes();
+        $paperSizes = InventoryItem::paperSizes(Auth::user()->campus);
         return view('user.requests.printing', compact('paperSizes'));
     }
 
@@ -68,7 +81,7 @@ class ServiceRequestController extends Controller
     }
 
     public function photocopy() {
-        $paperSizes = InventoryItem::paperSizes();
+        $paperSizes = InventoryItem::paperSizes(Auth::user()->campus);
         return view('user.requests.photocopy', compact('paperSizes'));
     }
 
@@ -100,7 +113,7 @@ class ServiceRequestController extends Controller
     }
 
     public function research() {
-        $durations = InventoryItem::pcDurations();
+        $durations = InventoryItem::pcDurations(Auth::user()->campus);
         return view('user.requests.research', compact('durations'));
     }
 
@@ -176,15 +189,5 @@ class ServiceRequestController extends Controller
             'pages'   => $pages,
             'success' => $pages !== null,
         ]);
-    }
-
-    public function downloadReport(ServiceRequest $serviceRequest) {
-        if ($serviceRequest->user_id !== Auth::id()) abort(403);
-
-        $r = $serviceRequest->load(['user','computer','computerSession','admin']);
-
-        $pdf = Pdf::loadView('user.requests.pdf-report', compact('r'))->setPaper('a4', 'portrait');
-
-        return $pdf->download("Report-{$r->request_number}.pdf");
     }
 }

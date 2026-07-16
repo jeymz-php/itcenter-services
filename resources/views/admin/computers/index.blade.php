@@ -13,6 +13,21 @@
     <form action="{{ route('admin.computers.store') }}" method="POST">
       @csrf
       <div class="modal-body">
+        @if(session('admin')->role === 'super_admin')
+        <div class="fg">
+          <div class="flabel"><i class="fa-solid fa-building-columns"></i> Campus</div>
+          <div class="sw">
+            <select name="campus" class="fs" required>
+              <option value="" disabled selected>Select Campus</option>
+              @foreach(config('campuses') as $k => $v)
+              <option value="{{ $k }}">{{ $v }}</option>
+              @endforeach
+            </select>
+          </div>
+        </div>
+        @else
+        <input type="hidden" name="campus" value="{{ session('admin')->campus }}">
+        @endif
         <div class="fg">
           <div class="flabel"><i class="fa-solid fa-computer"></i> PC Name / Label</div>
           <input type="text" name="name" class="fc" placeholder="e.g. PC-11" required>
@@ -91,7 +106,7 @@
   <main class="main">
     @include('admin.partials.topbar', [
       'title' => 'Computer Management',
-      'sub'   => 'Manage lab PCs — availability, status, and details',
+      'sub'   => session('admin')->role === 'super_admin' ? 'Manage lab PCs — all campuses' : 'Manage lab PCs — '.config('campuses.'.session('admin')->campus, session('admin')->campus),
     ])
     <div class="content">
 
@@ -104,6 +119,22 @@
         <div class="abox err" style="margin-bottom:16px">
           <i class="fa-solid fa-triangle-exclamation"></i> {{ $errors->first() }}
         </div>
+      @endif
+
+      @if(session('admin')->role === 'super_admin')
+      <form method="GET" class="filter-bar" style="margin-bottom:16px">
+        <div class="fg" style="margin:0;display:flex;align-items:center;gap:8px">
+          <span style="font-size:.78rem;font-weight:600;color:var(--gray600)">Campus</span>
+          <div class="sw">
+            <select name="campus" class="fs" style="max-width:220px" onchange="this.form.submit()">
+              <option value="">All Campuses</option>
+              @foreach(config('campuses') as $k => $v)
+              <option value="{{ $k }}" {{ request('campus')===$k?'selected':'' }}>{{ $v }}</option>
+              @endforeach
+            </select>
+          </div>
+        </div>
+      </form>
       @endif
 
       {{-- STATS ROW --}}
@@ -173,6 +204,9 @@
                   <span class="tag {{ $pc->status==='available'?'tag-active':($pc->status==='in_use'?'tag-pend':'tag-rej') }}" style="font-size:.62rem">
                     {{ strtoupper(str_replace('_',' ',$pc->status)) }}
                   </span>
+                  @if(session('admin')->role === 'super_admin')
+                  <span class="tag tag-arch" style="font-size:.6rem;margin-left:3px">{{ config('campuses.'.$pc->campus, $pc->campus) }}</span>
+                  @endif
                 </div>
               </div>
             </div>

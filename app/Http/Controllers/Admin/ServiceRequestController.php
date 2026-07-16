@@ -7,16 +7,43 @@ use App\Models\AdminNotification;
 use Illuminate\Http\Request;
 use App\Models\Computer;
 use App\Models\ComputerSession;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class ServiceRequestController extends Controller
 {
     private function guard() {
         if (!session('admin')) abort(403);
+        return session('admin');
+    }
+
+    // Regular admins are restricted to requests from their own campus's users; super admins see everyone.
+    private function assertInScope($admin, ServiceRequest $sr) {
+        if ($admin->role !== 'super_admin' && $sr->user->campus !== $admin->campus) {
+            abort(403, 'You can only manage requests from your own campus.');
+        }
+    }
+
+    public function downloadReport(ServiceRequest $serviceRequest) {
+        $admin = $this->guard();
+        $this->assertInScope($admin, $serviceRequest);
+
+        $r = $serviceRequest->load(['user','computer','computerSession','admin']);
+
+        $pdf = Pdf::loadView('user.requests.pdf-report', compact('r'))
+                ->setPaper([0, 0, 226.77, $r->estimatedReceiptHeightPt()]);
+
+        // Stream (not download) so it opens in a new tab for preview first —
+        // the browser's own PDF viewer provides the Download button from there.
+        return $pdf->stream("Receipt-{$r->request_number}.pdf");
     }
 
     public function index(Request $request) {
-        $this->guard();
+        $admin = $this->guard();
         $query = ServiceRequest::with('user');
+
+        if ($admin->role !== 'super_admin') {
+            $query->whereHas('user', fn($u) => $u->where('campus', $admin->campus));
+        }
 
         if ($request->search) {
             $s = $request->search;
@@ -29,29 +56,36 @@ class ServiceRequestController extends Controller
         }
         if ($request->service_type) $query->where('service_type', $request->service_type);
         if ($request->status)       $query->where('status', $request->status);
-        if ($request->campus)       $query->whereHas('user', fn($u) => $u->where('campus', $request->campus));
+        if ($request->campus && $admin->role === 'super_admin') $query->whereHas('user', fn($u) => $u->where('campus', $request->campus));
 
         $requests = $query->latest()->paginate(20)->withQueryString();
 
+        $countsQuery = ServiceRequest::query();
+        if ($admin->role !== 'super_admin') {
+            $countsQuery->whereHas('user', fn($u) => $u->where('campus', $admin->campus));
+        }
+        $countsBase = $countsQuery->get();
         $counts = [
-            'all'        => ServiceRequest::count(),
-            'pending'    => ServiceRequest::where('status','pending')->count(),
-            'approved'   => ServiceRequest::where('status','approved')->count(),
-            'processing' => ServiceRequest::where('status','processing')->count(),
-            'completed'  => ServiceRequest::where('status','completed')->count(),
-            'rejected'   => ServiceRequest::where('status','rejected')->count(),
+            'all'        => $countsBase->count(),
+            'pending'    => $countsBase->where('status','pending')->count(),
+            'approved'   => $countsBase->where('status','approved')->count(),
+            'processing' => $countsBase->where('status','processing')->count(),
+            'completed'  => $countsBase->where('status','completed')->count(),
+            'rejected'   => $countsBase->where('status','rejected')->count(),
         ];
 
         return view('admin.requests.index', compact('requests','counts'));
     }
 
     public function show(ServiceRequest $serviceRequest) {
-        $this->guard();
+        $admin = $this->guard();
+        $this->assertInScope($admin, $serviceRequest);
         return view('admin.requests.show', ['sr' => $serviceRequest]);
     }
 
     public function approve(ServiceRequest $serviceRequest) {
-        $this->guard();
+        $admin = $this->guard();
+        $this->assertInScope($admin, $serviceRequest);
         $serviceRequest->update([
             'status'      => 'approved',
             'reviewed_by' => session('admin')->id,
@@ -66,7 +100,8 @@ class ServiceRequestController extends Controller
     }
 
     public function reject(Request $request, ServiceRequest $serviceRequest) {
-        $this->guard();
+        $admin = $this->guard();
+        $this->assertInScope($admin, $serviceRequest);
         $request->validate(['admin_note' => 'required|string|max:500']);
         $serviceRequest->update([
             'status'      => 'rejected',
@@ -78,7 +113,8 @@ class ServiceRequestController extends Controller
     }
 
     public function complete(ServiceRequest $serviceRequest) {
-        $this->guard();
+        $admin = $this->guard();
+        $this->assertInScope($admin, $serviceRequest);
         $serviceRequest->update(['status' => 'completed']);
         $this->reduceStock($serviceRequest);
         AdminNotification::notify(
@@ -92,12 +128,14 @@ class ServiceRequestController extends Controller
     }
 
     public function processing(ServiceRequest $serviceRequest) {
-        $this->guard();
+        $admin = $this->guard();
+        $this->assertInScope($admin, $serviceRequest);
         $serviceRequest->update(['status' => 'processing']);
         return back()->with('success',"Request marked as processing.");
     }
     public function assignPC(Request $request, ServiceRequest $serviceRequest) {
-        $this->guard();
+        $admin = $this->guard();
+        $this->assertInScope($admin, $serviceRequest);
         $request->validate(['computer_id' => 'required|exists:computers,id']);
 
         $computer = Computer::findOrFail($request->computer_id);
@@ -139,7 +177,8 @@ class ServiceRequestController extends Controller
     }
 
     public function extendSession(Request $request, ServiceRequest $serviceRequest) {
-        $this->guard();
+        $admin = $this->guard();
+        $this->assertInScope($admin, $serviceRequest);
         $request->validate(['extend_minutes' => 'required|integer|in:15,30,45,60']);
 
         $session = $serviceRequest->computerSession;
@@ -166,7 +205,8 @@ class ServiceRequestController extends Controller
     }
 
     public function endSession(ServiceRequest $serviceRequest) {
-        $this->guard();
+        $admin = $this->guard();
+        $this->assertInScope($admin, $serviceRequest);
         $session = $serviceRequest->computerSession;
         if ($session) {
             $session->update(['status' => 'completed', 'ended_at' => now()]);

@@ -1,11 +1,18 @@
 @php
   $admin       = session('admin');
+  $isSuper     = $admin->role === 'super_admin';
   $unread      = \App\Models\AdminNotification::where('is_read',false)->count();
-  $pendingUsers = \App\Models\User::where('status','pending')->count();
-  $pendingReqs  = \App\Models\ServiceRequest::where('status','pending')->count();
-  $pendingAccReqs = \App\Models\AccountRequest::where('status','pending')->count();
-  $activeSessions = \App\Models\ComputerSession::whereIn('status',['active','extended'])->count();
+  $pendingUsers = \App\Models\User::where('status','pending')
+                    ->when(!$isSuper, fn($q) => $q->where('campus', $admin->campus))->count();
+  $pendingReqs  = \App\Models\ServiceRequest::where('status','pending')
+                    ->when(!$isSuper, fn($q) => $q->whereHas('user', fn($u) => $u->where('campus', $admin->campus)))->count();
+  $pendingAccReqs = \App\Models\AccountRequest::where('status','pending')
+                    ->when(!$isSuper, fn($q) => $q->whereHas('user', fn($u) => $u->where('campus', $admin->campus)))->count();
+  $activeSessions = \App\Models\ComputerSession::whereIn('status',['active','extended'])
+                    ->when(!$isSuper, fn($q) => $q->whereHas('user', fn($u) => $u->where('campus', $admin->campus)))->count();
 @endphp
+
+@php $pendingGuest = \App\Models\GuestRequest::where('status','pending')->when(!$isSuper, fn($q) => $q->where('campus', $admin->campus))->count(); @endphp
 
 <aside class="sidebar">
   <div class="sb-brand">
@@ -111,17 +118,18 @@
       <i class="fa-solid fa-boxes-stacked"></i> Inventory
     </a>
 
-    <div class="sb-section">Reports & Analytics</div>
-    <a href="{{ route('admin.reports.index') }}"
-       class="sb-link {{ request()->routeIs('admin.reports.*') ? 'active' : '' }}">
-      <i class="fa-solid fa-chart-line"></i> Reports
-    </a>
     <div class="sb-section">Communication</div>
     <a href="{{ route('admin.messages.index') }}"
        class="sb-link {{ request()->routeIs('admin.messages.*') ? 'active' : '' }}">
       <i class="fa-solid fa-comments"></i> Messages
       @php $unreadMsgs = \App\Models\Message::unreadByAdmin()->pluck('user_id')->unique()->count(); @endphp
       @if($unreadMsgs)<span class="nb" id="sb-msg-badge">{{ $unreadMsgs }}</span>@endif
+    </a>
+
+    <div class="sb-section">Reports & Analytics</div>
+    <a href="{{ route('admin.reports.index') }}"
+       class="sb-link {{ request()->routeIs('admin.reports.*') ? 'active' : '' }}">
+      <i class="fa-solid fa-chart-line"></i> Reports
     </a>
     <a href="#" class="sb-link"><i class="fa-solid fa-star"></i> Review Ratings</a>
     <a href="{{ route('admin.notifications') }}"
@@ -130,17 +138,21 @@
       @if($unread)<span class="nb">{{ $unread }}</span>@endif
     </a>
 
-  </nav>
+    {{-- Logout lives inside .sb-nav on purpose: on mobile .sb-nav is hidden
+         behind the hamburger toggle, so Logout hides/shows together with
+         the rest of the nav instead of leaking out as its own row next to
+         the logo (that was the "double header" bug on mobile). --}}
+    <div style="padding:10px 10px 0">
+      <form action="{{ route('admin.logout') }}" method="POST">
+        @csrf
+        <button type="submit" class="sb-link"
+          style="background:rgba(229,62,62,.12);color:#ff8080;border-radius:8px;width:100%;border:none;cursor:pointer">
+          <i class="fa-solid fa-right-from-bracket"></i> Logout
+        </button>
+      </form>
+    </div>
 
-  <div style="padding:0 10px 12px">
-    <form action="{{ route('admin.logout') }}" method="POST">
-      @csrf
-      <button type="submit" class="sb-link"
-        style="background:rgba(229,62,62,.12);color:#ff8080;border-radius:8px;width:100%;border:none;cursor:pointer">
-        <i class="fa-solid fa-right-from-bracket"></i> Logout
-      </button>
-    </form>
-  </div>
+  </nav>
 
   <div class="sb-footer">
     IT Services System<br>

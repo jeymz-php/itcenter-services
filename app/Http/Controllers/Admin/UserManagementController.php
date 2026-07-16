@@ -11,11 +11,22 @@ class UserManagementController extends Controller
 {
     private function adminGuard() {
         if (!session('admin')) abort(403);
+        return session('admin');
+    }
+
+    // Regular admins are restricted to their own campus; super admins see everyone.
+    private function assertInScope($admin, User $user) {
+        if ($admin->role !== 'super_admin' && $user->campus !== $admin->campus) {
+            abort(403, 'You can only manage users from your own campus.');
+        }
     }
 
     public function index(Request $request) {
-        $this->adminGuard();
+        $admin = $this->adminGuard();
         $query = User::query();
+        if ($admin->role !== 'super_admin') {
+            $query->where('campus', $admin->campus);
+        }
         if ($request->search) {
             $s = $request->search;
             $query->where(function($q) use ($s) {
@@ -27,27 +38,33 @@ class UserManagementController extends Controller
         }
         if ($request->status)    $query->where('status', $request->status);
         if ($request->user_type) $query->where('user_type', $request->user_type);
-        if ($request->campus)    $query->where('campus', $request->campus);
+        if ($request->campus && $admin->role === 'super_admin') $query->where('campus', $request->campus);
 
         $users = $query->latest()->paginate(15)->withQueryString();
+
+        $countsBase = User::query();
+        if ($admin->role !== 'super_admin') $countsBase->where('campus', $admin->campus);
+        $countsBase = $countsBase->get();
         $counts = [
-            'all'         => User::count(),
-            'pending'     => User::where('status','pending')->count(),
-            'active'      => User::where('status','active')->count(),
-            'deactivated' => User::where('status','deactivated')->count(),
-            'archived'    => User::where('status','archived')->count(),
-            'rejected'    => User::where('status','rejected')->count(),
+            'all'         => $countsBase->count(),
+            'pending'     => $countsBase->where('status','pending')->count(),
+            'active'      => $countsBase->where('status','active')->count(),
+            'deactivated' => $countsBase->where('status','deactivated')->count(),
+            'archived'    => $countsBase->where('status','archived')->count(),
+            'rejected'    => $countsBase->where('status','rejected')->count(),
         ];
         return view('admin.users.index', compact('users','counts'));
     }
 
     public function show(User $user) {
-        $this->adminGuard();
+        $admin = $this->adminGuard();
+        $this->assertInScope($admin, $user);
         return view('admin.users.show', compact('user'));
     }
 
     public function approve(User $user) {
-        $this->adminGuard();
+        $admin = $this->adminGuard();
+        $this->assertInScope($admin, $user);
         $user->update(['status' => 'active']);
         AdminNotification::notify(
             'account_approved', 'Account Approved',
@@ -58,7 +75,8 @@ class UserManagementController extends Controller
     }
 
     public function reject(Request $request, User $user) {
-        $this->adminGuard();
+        $admin = $this->adminGuard();
+        $this->assertInScope($admin, $user);
         $request->validate(['reason' => 'required|string|max:500']);
         $user->update(['status' => 'rejected']);
         AdminNotification::notify(
@@ -70,7 +88,8 @@ class UserManagementController extends Controller
     }
 
     public function activate(User $user) {
-        $this->adminGuard();
+        $admin = $this->adminGuard();
+        $this->assertInScope($admin, $user);
         $user->update(['status' => 'active']);
         AdminNotification::notify(
             'account_activated','Account Activated',
@@ -81,7 +100,8 @@ class UserManagementController extends Controller
     }
 
     public function deactivate(Request $request, User $user) {
-        $this->adminGuard();
+        $admin = $this->adminGuard();
+        $this->assertInScope($admin, $user);
         $request->validate(['reason' => 'nullable|string|max:500']);
         $user->update(['status' => 'deactivated']);
         AdminNotification::notify(
@@ -93,7 +113,8 @@ class UserManagementController extends Controller
     }
 
     public function archive(User $user) {
-        $this->adminGuard();
+        $admin = $this->adminGuard();
+        $this->assertInScope($admin, $user);
         $user->update(['status' => 'archived']);
         AdminNotification::notify(
             'account_archived','Account Archived',
@@ -104,7 +125,7 @@ class UserManagementController extends Controller
     }
 
     public function store(Request $request) {
-        $this->adminGuard();
+        $admin = $this->adminGuard();
         $request->validate([
             'id_number'  => 'required|string|size:8|unique:users',
             'first_name' => 'required|string|max:100',
@@ -114,12 +135,15 @@ class UserManagementController extends Controller
             'user_type'  => 'required|in:student,faculty_staff',
             'password'   => 'required|string|min:8',
         ]);
+        // Regular admins can only create users in their own campus, regardless of what was submitted
+        $campus = $admin->role === 'super_admin' ? $request->campus : $admin->campus;
+
         $user = User::create([
             'id_number'  => $request->id_number,
             'first_name' => $request->first_name,
             'last_name'  => $request->last_name,
             'email'      => $request->email,
-            'campus'     => $request->campus,
+            'campus'     => $campus,
             'user_type'  => $request->user_type,
             'password'   => Hash::make($request->password),
             'status'     => 'active',
@@ -133,7 +157,8 @@ class UserManagementController extends Controller
     }
 
     public function update(Request $request, User $user) {
-        $this->adminGuard();
+        $admin = $this->adminGuard();
+        $this->assertInScope($admin, $user);
         $request->validate([
             'first_name' => 'required|string|max:100',
             'last_name'  => 'required|string|max:100',
@@ -141,7 +166,10 @@ class UserManagementController extends Controller
             'campus'     => 'required|string',
             'user_type'  => 'required|in:student,faculty_staff',
         ]);
-        $user->update($request->only('first_name','last_name','email','campus','user_type'));
+        $data = $request->only('first_name','last_name','email','campus','user_type');
+        // Regular admins cannot move a user to a different campus
+        if ($admin->role !== 'super_admin') $data['campus'] = $admin->campus;
+        $user->update($data);
         if ($request->filled('password')) {
             $user->update(['password' => Hash::make($request->password)]);
         }
@@ -149,15 +177,17 @@ class UserManagementController extends Controller
     }
 
     public function destroy(User $user) {
-        $this->adminGuard();
+        $admin = $this->adminGuard();
+        $this->assertInScope($admin, $user);
         $name = $user->full_name;
         $user->delete();
         return redirect()->route('admin.users.index')->with('success', "User {$name} deleted.");
     }
 
     public function approveRequest(Request $request, \App\Models\AccountRequest $accountRequest) {
-        $this->adminGuard();
+        $admin = $this->adminGuard();
         $user = $accountRequest->user;
+        $this->assertInScope($admin, $user);
         $newStatus = match($accountRequest->type) {
             'deactivate'  => 'deactivated',
             'reactivate'  => 'active',
@@ -183,7 +213,8 @@ class UserManagementController extends Controller
     }
 
     public function rejectRequest(Request $request, \App\Models\AccountRequest $accountRequest) {
-        $this->adminGuard();
+        $admin = $this->adminGuard();
+        $this->assertInScope($admin, $accountRequest->user);
         $request->validate(['admin_note' => 'nullable|string|max:500']);
         $accountRequest->update([
             'status'      => 'rejected',

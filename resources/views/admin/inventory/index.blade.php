@@ -20,6 +20,21 @@
             <option value="pc_duration">PC Duration</option>
           </select></div>
         </div>
+        @if(session('admin')->role === 'super_admin')
+        <div class="fg">
+          <div class="flabel"><i class="fa-solid fa-building-columns"></i> Campus</div>
+          <div class="sw">
+            <select name="campus" class="fs" required>
+              <option value="" disabled selected>Select Campus</option>
+              @foreach(config('campuses') as $k => $v)
+              <option value="{{ $k }}">{{ $v }}</option>
+              @endforeach
+            </select>
+          </div>
+        </div>
+        @else
+        <input type="hidden" name="campus" value="{{ session('admin')->campus }}">
+        @endif
         <div class="g2">
           <div class="fg"><div class="flabel">Display Name</div><input type="text" name="name" class="fc" placeholder="e.g. A4 (210 × 297 mm)" required></div>
           <div class="fg"><div class="flabel">Value / Key</div><input type="text" name="value" class="fc" placeholder="e.g. a4" required></div>
@@ -38,16 +53,35 @@
 <div class="dash-wrap">
   @include('admin.partials.sidebar')
   <main class="main">
-    @include('admin.partials.topbar', ['title'=>'Inventory Management','sub'=>'Paper stock and PC duration management'])
+    @include('admin.partials.topbar', ['title'=>'Inventory Management','sub'=> session('admin')->role === 'super_admin' ? 'Paper stock and PC duration management — all campuses' : 'Paper stock and PC duration management — '.config('campuses.'.session('admin')->campus, session('admin')->campus)])
     <div class="content">
 
       @if(session('success'))<div class="abox ok" style="margin-bottom:14px"><i class="fa-solid fa-circle-check"></i> {{ session('success') }}</div>@endif
 
-      <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+        @if(session('admin')->role === 'super_admin')
+        <form method="GET" class="filter-bar" style="margin:0">
+          <div class="fg" style="margin:0;display:flex;align-items:center;gap:8px">
+            <span style="font-size:.78rem;font-weight:600;color:var(--gray600)">Campus</span>
+            <div class="sw">
+              <select name="campus" class="fs" style="max-width:220px" onchange="this.form.submit()">
+                <option value="">All Campuses</option>
+                @foreach(config('campuses') as $k => $v)
+                <option value="{{ $k }}" {{ $viewCampus===$k?'selected':'' }}>{{ $v }}</option>
+                @endforeach
+              </select>
+            </div>
+          </div>
+        </form>
+        @else
+        <div></div>
+        @endif
         <button class="filter-bar btn-sm" style="padding:9px 18px" onclick="openModal('addItemModal')">
           <i class="fa-solid fa-plus"></i> Add Item
         </button>
       </div>
+
+      @php $showCampusCol = session('admin')->role === 'super_admin' && !$viewCampus; @endphp
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
 
@@ -56,12 +90,13 @@
           <div class="section-hd"><h3><i class="fa-solid fa-expand" style="color:var(--g600)"></i> Paper Sizes</h3></div>
           <div class="tbl-wrap">
             <table>
-              <thead><tr><th>NAME</th><th>VALUE</th><th>STOCK</th><th>STATUS</th><th>ACTIONS</th></tr></thead>
+              <thead><tr><th>NAME</th><th>VALUE</th>@if($showCampusCol)<th>CAMPUS</th>@endif<th>STOCK</th><th>STATUS</th><th>ACTIONS</th></tr></thead>
               <tbody>
                 @forelse($papers as $item)
                 <tr>
                   <td style="font-weight:600;font-size:.78rem">{{ $item->name }}</td>
                   <td style="font-family:monospace;font-size:.74rem">{{ $item->value }}</td>
+                  @if($showCampusCol)<td><span class="tag tag-arch" style="font-size:.65rem">{{ config('campuses.'.$item->campus, $item->campus) }}</span></td>@endif
                   <td>
                     <div style="display:flex;align-items:center;gap:8px">
                       <span style="font-weight:800;color:{{ $item->stock<50?'var(--red)':($item->stock<200?'var(--orange)':'var(--g700)') }}">
@@ -97,7 +132,7 @@
                   </td>
                 </tr>
                 @empty
-                <tr><td colspan="5" style="text-align:center;padding:20px;color:var(--gray400)">No paper sizes yet.</td></tr>
+                <tr><td colspan="{{ $showCampusCol ? 6 : 5 }}" style="text-align:center;padding:20px;color:var(--gray400)">No paper sizes yet.</td></tr>
                 @endforelse
               </tbody>
             </table>
@@ -109,12 +144,13 @@
           <div class="section-hd"><h3><i class="fa-solid fa-clock" style="color:var(--g600)"></i> PC Durations</h3></div>
           <div class="tbl-wrap">
             <table>
-              <thead><tr><th>NAME</th><th>MINUTES</th><th>STATUS</th><th>ACTIONS</th></tr></thead>
+              <thead><tr><th>NAME</th><th>MINUTES</th>@if($showCampusCol)<th>CAMPUS</th>@endif<th>STATUS</th><th>ACTIONS</th></tr></thead>
               <tbody>
                 @forelse($durations as $item)
                 <tr>
                   <td style="font-weight:600;font-size:.78rem">{{ $item->name }}</td>
                   <td style="font-family:monospace;font-weight:800;color:var(--g700)">{{ $item->value }}m</td>
+                  @if($showCampusCol)<td><span class="tag tag-arch" style="font-size:.65rem">{{ config('campuses.'.$item->campus, $item->campus) }}</span></td>@endif
                   <td><span class="tag {{ $item->is_active?'tag-active':'tag-deact' }}">{{ $item->is_active?'ACTIVE':'INACTIVE' }}</span></td>
                   <td>
                     <div style="display:flex;gap:4px">
@@ -135,7 +171,7 @@
                   </td>
                 </tr>
                 @empty
-                <tr><td colspan="4" style="text-align:center;padding:20px;color:var(--gray400)">No durations yet.</td></tr>
+                <tr><td colspan="{{ $showCampusCol ? 5 : 4 }}" style="text-align:center;padding:20px;color:var(--gray400)">No durations yet.</td></tr>
                 @endforelse
               </tbody>
             </table>

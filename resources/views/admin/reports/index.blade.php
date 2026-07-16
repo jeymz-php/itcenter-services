@@ -5,10 +5,10 @@
 <div class="dash-wrap">
   @include('admin.partials.sidebar')
   <main class="main">
-    @include('admin.partials.topbar', ['title'=>'Reports & Analytics','sub'=>'Service usage statistics and insights'])
+    @include('admin.partials.topbar', ['title'=>'Reports & Analytics','sub'=> session('admin')->role === 'super_admin' ? 'Service usage statistics and insights (all campuses)' : 'Service usage statistics — '.config('campuses.'.session('admin')->campus, session('admin')->campus)])
     <div class="content">
 
-      {{-- DATE FILTER --}}
+      {{-- DATE + CAMPUS FILTER --}}
       <form class="filter-bar" method="GET" style="margin-bottom:16px">
         <div class="fg" style="margin:0;display:flex;align-items:center;gap:8px">
           <span style="font-size:.78rem;font-weight:600;color:var(--gray600)">From</span>
@@ -16,6 +16,19 @@
           <span style="font-size:.78rem;font-weight:600;color:var(--gray600)">To</span>
           <input type="date" name="to"   class="fc" value="{{ $to }}"   style="max-width:160px">
         </div>
+        @if(session('admin')->role === 'super_admin')
+        <div class="fg" style="margin:0;display:flex;align-items:center;gap:8px">
+          <span style="font-size:.78rem;font-weight:600;color:var(--gray600)">Campus</span>
+          <div class="sw">
+            <select name="campus" class="fs" style="max-width:200px">
+              <option value="">All Campuses</option>
+              @foreach(config('campuses') as $k => $v)
+              <option value="{{ $k }}" {{ $campus===$k?'selected':'' }}>{{ $v }}</option>
+              @endforeach
+            </select>
+          </div>
+        </div>
+        @endif
         <button type="submit" class="btn-sm"><i class="fa-solid fa-magnifying-glass"></i> Generate</button>
       </form>
 
