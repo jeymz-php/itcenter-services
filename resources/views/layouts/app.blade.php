@@ -60,7 +60,7 @@ body.dash-page{background:var(--offwhite);overflow:hidden}
 .panel-left::before{content:'';position:absolute;bottom:-70px;right:-70px;width:240px;height:240px;border-radius:50%;background:rgba(255,255,255,.05);pointer-events:none}
 .panel-left::after{content:'';position:absolute;top:-40px;left:-40px;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,.04);pointer-events:none}
 .logo-row{display:flex;align-items:center;gap:12px;margin-bottom:24px}
-.logo-row img{width:48px;height:48px;border-radius:10px;background:rgba(255,255,255,.12);padding:4px;object-fit:contain;cursor:pointer;user-select:none;flex-shrink:0}
+.logo-row img{width:48px;height:48px;border-radius:10px;background:rgba(255,255,255,.12);padding:4px;object-fit:contain;user-select:none;flex-shrink:0}
 .logo-text .sys-name{font-size:.95rem;font-weight:800;color:var(--white);line-height:1.2}
 .logo-text .sys-sub{font-size:.72rem;color:rgba(255,255,255,.65);margin-top:2px}
 .left-title{font-size:1.55rem;font-weight:800;color:var(--white);line-height:1.2;margin-bottom:10px}

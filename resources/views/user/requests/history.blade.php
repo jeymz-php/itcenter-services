@@ -133,7 +133,7 @@
 
         <a href="{{ route('requests.report', $r->id) }}" target="_blank"
           style="background:var(--white);color:var(--g700);border:1.5px solid var(--g300);border-radius:8px;padding:7px 14px;font-size:.75rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;white-space:nowrap;text-decoration:none">
-          <i class="fa-solid fa-file-pdf"></i> PDF Report
+          <i class="fa-solid fa-file-pdf"></i> Generate Receipt
         </a>
 
         @if($r->status === 'rejected' && $r->admin_note)
