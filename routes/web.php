@@ -123,6 +123,12 @@ Route::prefix('messages')->name('messages.')->group(function () {
         Route::post('/{admin}/toggle', [AdminManagementController::class, 'toggleStatus'])->name('toggle');
     });
 
+    // ── SYSTEM SETTINGS ──
+    Route::prefix('settings')->name('settings.')->group(function () {
+        Route::get('/',  [App\Http\Controllers\Admin\SettingsController::class, 'index'])->name('index');
+        Route::put('/',  [App\Http\Controllers\Admin\SettingsController::class, 'update'])->name('update');
+    });
+
     // ── SERVICE REQUESTS (admin) ──
     Route::prefix('service-requests')->name('service-requests.')->group(function () {
         Route::get('/',                          [AdminServiceRequestController::class, 'index'])->name('index');

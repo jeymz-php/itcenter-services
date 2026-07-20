@@ -14,6 +14,16 @@
   $activeSession = \App\Models\ComputerSession::where('user_id',$user->id)
                    ->whereIn('status',['active','extended'])->with('computer','serviceRequest')->first();
   $recentRequests = \App\Models\ServiceRequest::where('user_id',$user->id)->latest()->take(5)->get();
+
+  $printingLimit        = \App\Models\ServiceRequest::dailyPrintingLimit();
+  $printingUsedToday    = \App\Models\ServiceRequest::printingPagesUsedToday($user->id);
+  $printingRemainingToday = \App\Models\ServiceRequest::printingPagesRemainingToday($user->id);
+  $photocopyLimit        = \App\Models\ServiceRequest::dailyPhotocopyLimit();
+  $photocopyUsedToday    = \App\Models\ServiceRequest::photocopyPagesUsedToday($user->id);
+  $photocopyRemainingToday = \App\Models\ServiceRequest::photocopyPagesRemainingToday($user->id);
+  $minutesLimit      = \App\Models\ServiceRequest::dailyResearchLimit();
+  $minutesUsedToday    = \App\Models\ServiceRequest::minutesUsedToday($user->id);
+  $minutesRemainingToday = \App\Models\ServiceRequest::minutesRemainingToday($user->id);
 @endphp
 
 <div class="dash-wrap">
@@ -181,6 +191,49 @@
         </div>
       </div>
       @endif
+
+      {{-- TODAY'S USAGE --}}
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px">
+        <div style="background:var(--white);border-radius:14px;border:1.5px solid var(--gray200);padding:16px 18px;box-shadow:var(--shadow-sm)">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="font-size:.78rem;font-weight:800;color:var(--gray800)"><i class="fa-solid fa-print" style="color:var(--blue);margin-right:5px"></i>Printing Today</div>
+            <div style="font-size:.75rem;font-weight:800;color:{{ $printingRemainingToday<=0?'var(--red)':'var(--blue)' }}">{{ $printingUsedToday }}/{{ $printingLimit }}</div>
+          </div>
+          <div style="background:var(--gray100);border-radius:8px;height:8px;overflow:hidden">
+            @php $printPct = $printingLimit>0 ? min(100, round($printingUsedToday/$printingLimit*100)) : 0; @endphp
+            <div style="height:100%;border-radius:8px;width:{{ $printPct }}%;background:{{ $printingRemainingToday<=0?'var(--red)':'var(--blue)' }}"></div>
+          </div>
+          <div style="font-size:.68rem;color:var(--gray400);margin-top:6px">
+            @if($printingRemainingToday > 0) {{ $printingRemainingToday }} page(s) left today @else Limit reached — resets 12:00 AM @endif
+          </div>
+        </div>
+        <div style="background:var(--white);border-radius:14px;border:1.5px solid var(--gray200);padding:16px 18px;box-shadow:var(--shadow-sm)">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="font-size:.78rem;font-weight:800;color:var(--gray800)"><i class="fa-solid fa-copy" style="color:var(--orange);margin-right:5px"></i>Photocopy Today</div>
+            <div style="font-size:.75rem;font-weight:800;color:{{ $photocopyRemainingToday<=0?'var(--red)':'var(--orange)' }}">{{ $photocopyUsedToday }}/{{ $photocopyLimit }}</div>
+          </div>
+          <div style="background:var(--gray100);border-radius:8px;height:8px;overflow:hidden">
+            @php $copyPct = $photocopyLimit>0 ? min(100, round($photocopyUsedToday/$photocopyLimit*100)) : 0; @endphp
+            <div style="height:100%;border-radius:8px;width:{{ $copyPct }}%;background:{{ $photocopyRemainingToday<=0?'var(--red)':'var(--orange)' }}"></div>
+          </div>
+          <div style="font-size:.68rem;color:var(--gray400);margin-top:6px">
+            @if($photocopyRemainingToday > 0) {{ $photocopyRemainingToday }} page(s) left today @else Limit reached — resets 12:00 AM @endif
+          </div>
+        </div>
+        <div style="background:var(--white);border-radius:14px;border:1.5px solid var(--gray200);padding:16px 18px;box-shadow:var(--shadow-sm)">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="font-size:.78rem;font-weight:800;color:var(--gray800)"><i class="fa-solid fa-desktop" style="color:var(--g600);margin-right:5px"></i>Research/PC-Lab Today</div>
+            <div style="font-size:.75rem;font-weight:800;color:{{ $minutesRemainingToday<=0?'var(--red)':'var(--g600)' }}">{{ $minutesUsedToday }}/{{ $minutesLimit }}m</div>
+          </div>
+          <div style="background:var(--gray100);border-radius:8px;height:8px;overflow:hidden">
+            @php $minPct = $minutesLimit>0 ? min(100, round($minutesUsedToday/$minutesLimit*100)) : 0; @endphp
+            <div style="height:100%;border-radius:8px;width:{{ $minPct }}%;background:{{ $minutesRemainingToday<=0?'var(--red)':'var(--g500)' }}"></div>
+          </div>
+          <div style="font-size:.68rem;color:var(--gray400);margin-top:6px">
+            @if($minutesRemainingToday > 0) {{ $minutesRemainingToday }} minute(s) left today @else Limit reached — resets 12:00 AM @endif
+          </div>
+        </div>
+      </div>
 
       {{-- STAT CARDS --}}
       <div class="stat-grid" style="grid-template-columns:repeat(5,1fr)">

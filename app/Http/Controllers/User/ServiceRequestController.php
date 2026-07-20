@@ -17,7 +17,7 @@ class ServiceRequestController extends Controller
         $r = $serviceRequest->load(['user','computer','computerSession','admin']);
 
         $pdf = Pdf::loadView('user.requests.pdf-report', compact('r'))
-                ->setPaper([0, 0, 226.77, $r->estimatedReceiptHeightPt()]);
+                   ->setPaper([0, 0, 226.77, $r->estimatedReceiptHeightPt()]);
 
         // Stream (not download) so it opens in a new tab for preview first —
         // the browser's own PDF viewer provides the Download button from there.
@@ -26,7 +26,10 @@ class ServiceRequestController extends Controller
 
     public function printing() {
         $paperSizes = InventoryItem::paperSizes(Auth::user()->campus);
-        return view('user.requests.printing', compact('paperSizes'));
+        $pageLimit      = ServiceRequest::dailyPrintingLimit();
+        $pagesUsed      = ServiceRequest::printingPagesUsedToday(Auth::id());
+        $pagesRemaining = ServiceRequest::printingPagesRemainingToday(Auth::id());
+        return view('user.requests.printing', compact('paperSizes','pageLimit','pagesUsed','pagesRemaining'));
     }
 
     public function storePrinting(Request $request) {
@@ -45,6 +48,17 @@ class ServiceRequestController extends Controller
 
         // Total sheets = pages × copies
         $totalSheets = $detectedPages ? ($detectedPages * $copies) : $copies;
+
+        // Daily printing page limit — students/faculty only
+        $pageLimit = ServiceRequest::dailyPrintingLimit();
+        $remaining = ServiceRequest::printingPagesRemainingToday(Auth::id());
+        if ($totalSheets > $remaining) {
+            return back()->withErrors([
+                'error' => $remaining > 0
+                    ? "This request needs {$totalSheets} sheet(s), but you only have {$remaining} page(s) left of your daily {$pageLimit}-page printing limit. Resets at 12:00 AM."
+                    : "You've reached your daily {$pageLimit}-page printing limit. It resets at 12:00 AM.",
+            ])->withInput();
+        }
 
         $filePath = $uploadedFile->store('service_files', 'public');
         $fileName = $uploadedFile->getClientOriginalName();
@@ -82,7 +96,10 @@ class ServiceRequestController extends Controller
 
     public function photocopy() {
         $paperSizes = InventoryItem::paperSizes(Auth::user()->campus);
-        return view('user.requests.photocopy', compact('paperSizes'));
+        $pageLimit      = ServiceRequest::dailyPhotocopyLimit();
+        $pagesUsed      = ServiceRequest::photocopyPagesUsedToday(Auth::id());
+        $pagesRemaining = ServiceRequest::photocopyPagesRemainingToday(Auth::id());
+        return view('user.requests.photocopy', compact('paperSizes','pageLimit','pagesUsed','pagesRemaining'));
     }
 
     public function storePhotocopy(Request $request) {
@@ -93,12 +110,24 @@ class ServiceRequestController extends Controller
             'terms'      => 'accepted',
         ]);
 
+        // Daily photocopy page limit — students/faculty only
+        $copies    = (int) $request->copies;
+        $pageLimit = ServiceRequest::dailyPhotocopyLimit();
+        $remaining = ServiceRequest::photocopyPagesRemainingToday(Auth::id());
+        if ($copies > $remaining) {
+            return back()->withErrors([
+                'error' => $remaining > 0
+                    ? "This request needs {$copies} page(s), but you only have {$remaining} page(s) left of your daily {$pageLimit}-page photocopy limit. Resets at 12:00 AM."
+                    : "You've reached your daily {$pageLimit}-page photocopy limit. It resets at 12:00 AM.",
+            ])->withInput();
+        }
+
         $sr = ServiceRequest::create([
             'request_number' => ServiceRequest::generateNumber(),
             'user_id'        => Auth::id(),
             'service_type'   => 'photocopy',
             'paper_size'     => $request->paper_size,
-            'copies'         => $request->copies,
+            'copies'         => $copies,
             'purpose'        => $request->purpose,
         ]);
 
@@ -114,7 +143,10 @@ class ServiceRequestController extends Controller
 
     public function research() {
         $durations = InventoryItem::pcDurations(Auth::user()->campus);
-        return view('user.requests.research', compact('durations'));
+        $minutesLimit     = ServiceRequest::dailyResearchLimit();
+        $minutesUsed      = ServiceRequest::minutesUsedToday(Auth::id());
+        $minutesRemaining = ServiceRequest::minutesRemainingToday(Auth::id());
+        return view('user.requests.research', compact('durations','minutesLimit','minutesUsed','minutesRemaining'));
     }
 
     public function storeResearch(Request $request) {
@@ -124,11 +156,23 @@ class ServiceRequestController extends Controller
             'terms'            => 'accepted',
         ]);
 
+        // Daily research/PC-lab minute limit — students/faculty only
+        $minutes      = (int) $request->duration_minutes;
+        $minutesLimit = ServiceRequest::dailyResearchLimit();
+        $remaining    = ServiceRequest::minutesRemainingToday(Auth::id());
+        if ($minutes > $remaining) {
+            return back()->withErrors([
+                'error' => $remaining > 0
+                    ? "This request needs {$minutes} minute(s), but you only have {$remaining} minute(s) left of your daily {$minutesLimit}-minute research limit. Resets at 12:00 AM."
+                    : "You've reached your daily {$minutesLimit}-minute research/PC-lab limit. It resets at 12:00 AM.",
+            ]);
+        }
+
         $sr = ServiceRequest::create([
             'request_number'   => ServiceRequest::generateNumber(),
             'user_id'          => Auth::id(),
             'service_type'     => 'research',
-            'duration_minutes' => $request->duration_minutes,
+            'duration_minutes' => $minutes,
             'purpose'          => $request->purpose,
         ]);
 

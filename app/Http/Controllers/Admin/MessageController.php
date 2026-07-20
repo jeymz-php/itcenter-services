@@ -3,14 +3,13 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Mail\NewMessageMail;
-use App\Models\AdminNotification;
 use App\Models\ChatSession;
 use App\Models\Message;
 use App\Models\ServiceRequest;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Mail;    
 
 class MessageController extends Controller
 {
@@ -156,17 +155,16 @@ class MessageController extends Controller
 
         Cache::forget("typing:admin:{$user->id}");
 
-        AdminNotification::notify(
-            'new_message',
-            'New Message from IT Center',
-            \Illuminate\Support\Str::limit($message->body, 90),
-            $user,
-            route('user.messages.index'),
-            'fa-comment-dots'
-        );
+        // Note: no AdminNotification is created here on purpose. The admin
+        // notification bell/list queries aren't scoped by intended recipient,
+        // so a notification created here (meant for the student) was also
+        // showing up in the sending admin's own bell as a confusing
+        // self-notification. The student is still covered by: the live chat
+        // poll (if their thread is open), the unread badge on their Messages
+        // nav link, and the email notification sent below.
 
-        $unreadFromAdmin = Message::where('chat_session_id', $session->id)->unreadByUser()->count();
-        if ($unreadFromAdmin === 1 && $user->email) {
+        $isFirstMessageInSession = Message::where('chat_session_id', $session->id)->count() === 1;
+        if ($isFirstMessageInSession && $user->email) {
             try {
                 Mail::to($user->email)->send(new NewMessageMail(
                     $user->first_name,

@@ -76,8 +76,8 @@ class MessageController extends Controller
 
         // Email every admin — but only for the FIRST unread message in this
         // session, so a rapid back-and-forth doesn't spam every admin's inbox.
-        $unreadFromUser = Message::where('chat_session_id', $session->id)->unreadByAdmin()->count();
-        if ($unreadFromUser === 1) {
+        $isFirstMessageInSession = Message::where('chat_session_id', $session->id)->count() === 1;
+        if ($isFirstMessageInSession) {
             $this->notifyAdminsByEmail($user, $message);
         }
 

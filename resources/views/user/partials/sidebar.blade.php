@@ -35,6 +35,21 @@
       <div class="sb-uid">ID: {{ $user->id_number }}</div>
       <div class="sb-uid" style="font-size:.6rem">{{ config('campuses.'.$user->campus) }}</div>
       <span class="sb-badge">{{ ucfirst(str_replace('_',' ',$user->user_type)) }}</span>
+      @if($user->status === 'active')
+      @php
+        $sbPrintLimit = \App\Models\ServiceRequest::dailyPrintingLimit();
+        $sbPrintUsed  = \App\Models\ServiceRequest::printingPagesUsedToday($user->id);
+        $sbCopyLimit  = \App\Models\ServiceRequest::dailyPhotocopyLimit();
+        $sbCopyUsed   = \App\Models\ServiceRequest::photocopyPagesUsedToday($user->id);
+        $sbMinLimit   = \App\Models\ServiceRequest::dailyResearchLimit();
+        $sbMinUsed    = \App\Models\ServiceRequest::minutesUsedToday($user->id);
+      @endphp
+      <div style="margin-top:6px;font-size:.6rem;color:rgba(255,255,255,.55);display:flex;gap:7px;flex-wrap:wrap" title="Today's usage — resets 12:00 AM">
+        <span><i class="fa-solid fa-print"></i> {{ $sbPrintUsed }}/{{ $sbPrintLimit }}</span>
+        <span><i class="fa-solid fa-copy"></i> {{ $sbCopyUsed }}/{{ $sbCopyLimit }}</span>
+        <span><i class="fa-solid fa-desktop"></i> {{ $sbMinUsed }}/{{ $sbMinLimit }}m</span>
+      </div>
+      @endif
     </div>
   </div>
 

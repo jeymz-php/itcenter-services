@@ -5,7 +5,7 @@
 
 @php
   $computers = $sr->service_type === 'research'
-    ? \App\Models\Computer::where('status','available')->orderBy('sort_order')->get()
+    ? \App\Models\Computer::where('status','available')->where('campus', $sr->user->campus)->orderBy('sort_order')->get()
     : collect();
   $session = $sr->computerSession;
 @endphp
@@ -132,6 +132,55 @@
           style="background:var(--white);color:var(--g700);border:1.5px solid var(--g300);border-radius:8px;padding:8px 16px;font-size:.78rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;text-decoration:none">
           <i class="fa-solid fa-file-pdf"></i> View Receipt
         </a>
+      </div>
+
+      {{-- REQUESTER'S DAILY USAGE — full width, sits above the 2-column grid so it
+           never creates a mismatched-height column with empty space beneath it --}}
+      @php
+        $reqPrintLimit = \App\Models\ServiceRequest::dailyPrintingLimit();
+        $reqPrintUsed  = \App\Models\ServiceRequest::printingPagesUsedToday($sr->user_id);
+        $reqPrintLeft  = \App\Models\ServiceRequest::printingPagesRemainingToday($sr->user_id);
+        $reqCopyLimit  = \App\Models\ServiceRequest::dailyPhotocopyLimit();
+        $reqCopyUsed   = \App\Models\ServiceRequest::photocopyPagesUsedToday($sr->user_id);
+        $reqCopyLeft   = \App\Models\ServiceRequest::photocopyPagesRemainingToday($sr->user_id);
+        $reqMinLimit   = \App\Models\ServiceRequest::dailyResearchLimit();
+        $reqMinUsed    = \App\Models\ServiceRequest::minutesUsedToday($sr->user_id);
+        $reqMinLeft    = \App\Models\ServiceRequest::minutesRemainingToday($sr->user_id);
+      @endphp
+      <div class="profile-card" style="margin-bottom:16px">
+        <div class="profile-card-hd"><i class="fa-solid fa-gauge-high"></i> {{ $sr->user->first_name }}'s Daily Usage</div>
+        <div class="profile-card-body" style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px">
+          <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+              <span style="font-size:.74rem;color:var(--gray600)"><i class="fa-solid fa-print" style="color:var(--blue);margin-right:4px"></i>Printing</span>
+              <span style="font-size:.74rem;font-weight:800;color:{{ $reqPrintLeft<=0?'var(--red)':'var(--blue)' }}">{{ $reqPrintUsed }}/{{ $reqPrintLimit }}</span>
+            </div>
+            <div style="background:var(--gray100);border-radius:8px;height:6px;overflow:hidden">
+              @php $reqPrintPct = $reqPrintLimit>0 ? min(100, round($reqPrintUsed/$reqPrintLimit*100)) : 0; @endphp
+              <div style="height:100%;border-radius:8px;width:{{ $reqPrintPct }}%;background:{{ $reqPrintLeft<=0?'var(--red)':'var(--blue)' }}"></div>
+            </div>
+          </div>
+          <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+              <span style="font-size:.74rem;color:var(--gray600)"><i class="fa-solid fa-copy" style="color:var(--orange);margin-right:4px"></i>Photocopy</span>
+              <span style="font-size:.74rem;font-weight:800;color:{{ $reqCopyLeft<=0?'var(--red)':'var(--orange)' }}">{{ $reqCopyUsed }}/{{ $reqCopyLimit }}</span>
+            </div>
+            <div style="background:var(--gray100);border-radius:8px;height:6px;overflow:hidden">
+              @php $reqCopyPct = $reqCopyLimit>0 ? min(100, round($reqCopyUsed/$reqCopyLimit*100)) : 0; @endphp
+              <div style="height:100%;border-radius:8px;width:{{ $reqCopyPct }}%;background:{{ $reqCopyLeft<=0?'var(--red)':'var(--orange)' }}"></div>
+            </div>
+          </div>
+          <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+              <span style="font-size:.74rem;color:var(--gray600)"><i class="fa-solid fa-desktop" style="color:var(--g600);margin-right:4px"></i>Research/PC-Lab</span>
+              <span style="font-size:.74rem;font-weight:800;color:{{ $reqMinLeft<=0?'var(--red)':'var(--g600)' }}">{{ $reqMinUsed }}/{{ $reqMinLimit }}m</span>
+            </div>
+            <div style="background:var(--gray100);border-radius:8px;height:6px;overflow:hidden">
+              @php $reqMinPct = $reqMinLimit>0 ? min(100, round($reqMinUsed/$reqMinLimit*100)) : 0; @endphp
+              <div style="height:100%;border-radius:8px;width:{{ $reqMinPct }}%;background:{{ $reqMinLeft<=0?'var(--red)':'var(--g500)' }}"></div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div style="display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start">
