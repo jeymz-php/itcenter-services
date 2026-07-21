@@ -168,6 +168,10 @@ body{background:var(--offwhite)}
   </a>
   <div class="pub-nav-links">
     <a href="{{ route('public.track') }}"><i class="fa-solid fa-magnifying-glass"></i> Track Request</a>
+    <a href="#" onclick="openModal('developerModal');return false;">
+      <img src="{{ asset('images/icons/developer_icon.png') }}" alt="" style="width:13px;height:13px;object-fit:contain;filter:brightness(0) invert(1);opacity:.85;vertical-align:-2px;margin-right:4px">
+      Developer
+    </a>
     <a href="{{ route('login') }}" class="btn-nav"><i class="fa-solid fa-right-to-bracket"></i> Login</a>
   </div>
 </nav>
@@ -202,6 +206,31 @@ body{background:var(--offwhite)}
     <div class="modal-footer">
       <button class="modal-btn secondary" onclick="closeModal('termsModal')">Close</button>
       <button class="modal-btn primary" onclick="acceptTerms()"><i class="fa-solid fa-check"></i> I Agree</button>
+    </div>
+  </div>
+</div>
+
+{{-- DEVELOPER MODAL --}}
+<div class="modal-bg" id="developerModal">
+  <div class="modal-box" style="max-width:420px">
+    <div class="modal-hd">
+      <h3>
+        <img src="{{ asset('images/icons/developer_icon.png') }}" alt="" style="width:18px;height:18px;vertical-align:middle;margin-right:7px;object-fit:contain">
+        Developer
+      </h3>
+      <button class="modal-close" onclick="closeModal('developerModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body" style="text-align:center;padding:28px 24px">
+      <img src="{{ asset('images/greg.jpg') }}" alt="James Ryan Gregorio"
+        style="width:96px;height:96px;border-radius:50%;object-fit:cover;border:3px solid var(--g200);margin-bottom:14px">
+      <div style="font-size:1.05rem;font-weight:800;color:var(--gray800)">James Ryan Gregorio</div>
+      <div style="font-size:.8rem;color:var(--g600);font-weight:700;margin-top:2px">Full Stack Developer</div>
+      <p style="font-size:.78rem;color:var(--gray600);margin-top:14px;line-height:1.6">
+        Developed the UCC IT Center Services System — a platform for managing printing, photocopy, and computer lab requests for the University of Caloocan City.
+      </p>
+    </div>
+    <div class="modal-footer" style="justify-content:center">
+      <button type="button" class="modal-btn secondary" onclick="closeModal('developerModal')">Close</button>
     </div>
   </div>
 </div>

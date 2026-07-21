@@ -91,6 +91,10 @@
       @php $unreadMsgs = \App\Models\Message::where('user_id',$user->id)->where('sender_type','admin')->where('is_read_by_user',false)->count(); @endphp
       @if($unreadMsgs)<span class="nb" id="sb-msg-badge">{{ $unreadMsgs }}</span>@endif
     </a>
+    <a href="#" onclick="openModal('userGuideModal');return false;" class="sb-link">
+      <img src="{{ asset('images/icons/user-guide_icon.png') }}" alt="" style="width:14px;height:14px;object-fit:contain;filter:brightness(0) invert(1);opacity:.85">
+      User Guide
+    </a>
 
     <div class="sb-section">Account</div>
     <a href="{{ route('profile') }}"
@@ -122,3 +126,35 @@
     IT Services System<br>{{ config('campuses.'.$user->campus) }}
   </div>
 </aside>
+
+{{-- USER MANUAL & GUIDE MODAL — lives in the sidebar partial so it's available
+     on every authenticated page regardless of which one triggered it --}}
+<div class="modal-bg" id="userGuideModal">
+  <div class="modal-box" style="max-width:1100px;width:96vw;height:92vh;max-height:92vh">
+    <div class="modal-hd">
+      <h3>
+        <img src="{{ asset('images/icons/user-guide_icon.png') }}" alt="" style="width:18px;height:18px;vertical-align:middle;margin-right:7px;object-fit:contain">
+        User Manual &amp; Guide
+      </h3>
+      <button class="modal-close" onclick="closeModal('userGuideModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body" style="padding:0;flex:1;display:flex;flex-direction:column;min-height:0">
+      <iframe src="{{ asset('documents/user-manual.pdf') }}#view=FitH" style="width:100%;height:100%;border:none;flex:1"></iframe>
+    </div>
+    <div class="modal-footer">
+      <a href="{{ asset('documents/user-manual.pdf') }}" target="_blank" class="modal-btn secondary"
+         style="text-decoration:none;display:inline-flex;align-items:center;gap:6px">
+        <i class="fa-solid fa-up-right-from-square"></i> Open in New Tab
+      </a>
+      <button type="button" class="modal-btn primary" onclick="closeModal('userGuideModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+@push('scripts')
+<script>
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open')}));
+</script>
+@endpush
