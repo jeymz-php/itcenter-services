@@ -82,6 +82,121 @@
   </div>
 </div>
 
+<!-- RESTRICT RESEARCH MODAL -->
+<div class="modal-bg" id="restrictModal">
+  <div class="modal-box">
+    <div class="modal-hd">
+      <h3><i class="fa-solid fa-ban" style="color:var(--red);margin-right:6px"></i>Restrict Research / PC-Lab Access</h3>
+      <button class="modal-close" onclick="closeModal('restrictModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="restrictForm" method="POST">
+      @csrf
+      <div class="modal-body">
+        <div class="abox warn" style="margin-bottom:14px">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <div>This user will no longer be able to submit Research/PC-Lab requests. All other services remain unaffected.</div>
+        </div>
+        <div class="fg">
+          <div class="flabel">Reason <span style="color:var(--red)">*</span></div>
+          <textarea name="reason" class="fc" rows="3" placeholder="e.g. Reported inappropriate use of computer on [date]..." required style="resize:vertical"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="modal-btn secondary" onclick="closeModal('restrictModal')">Cancel</button>
+        <button type="submit" class="modal-btn danger"><i class="fa-solid fa-ban"></i> Restrict Access</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- EDIT USER MODAL -->
+<div class="modal-bg" id="editUserModal">
+  <div class="modal-box">
+    <div class="modal-hd">
+      <h3><i class="fa-solid fa-user-pen" style="color:var(--g600);margin-right:6px"></i>Edit User</h3>
+      <button class="modal-close" onclick="closeModal('editUserModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="editUserForm" method="POST">
+      @csrf @method('PUT')
+      <div class="modal-body">
+        <div class="g2">
+          <div class="fg"><div class="flabel">First Name</div><input type="text" name="first_name" id="eu-first" class="fc" required></div>
+          <div class="fg"><div class="flabel">Last Name</div><input type="text" name="last_name" id="eu-last" class="fc" required></div>
+        </div>
+        <div class="fg"><div class="flabel">Email</div><input type="email" name="email" id="eu-email" class="fc" required></div>
+        <div class="g2">
+          <div class="fg">
+            <div class="flabel">Campus</div>
+            <div class="sw"><select name="campus" id="eu-campus" class="fs" required {{ $admin->role !== 'super_admin' ? 'disabled' : '' }}>
+              @foreach(config('campuses') as $k=>$v)<option value="{{ $k }}">{{ $v }}</option>@endforeach
+            </select></div>
+            @if($admin->role !== 'super_admin')
+            <input type="hidden" name="campus" value="{{ $admin->campus }}">
+            <div style="font-size:.68rem;color:var(--gray400);margin-top:3px">Only Super Admin can move a user to a different campus.</div>
+            @endif
+          </div>
+          <div class="fg">
+            <div class="flabel">User Type</div>
+            <div class="sw"><select name="user_type" id="eu-type" class="fs" required>
+              <option value="student">Student</option>
+              <option value="faculty_staff">Faculty / Staff</option>
+            </select></div>
+          </div>
+        </div>
+        <div class="fg">
+          <div class="flabel">New Password (optional)</div>
+          <input type="password" name="password" class="fc" placeholder="Leave blank to keep current password">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="modal-btn secondary" onclick="closeModal('editUserModal')">Cancel</button>
+        <button type="submit" class="modal-btn primary"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- TRANSFER ROLE MODAL -->
+<div class="modal-bg" id="transferModal">
+  <div class="modal-box">
+    <div class="modal-hd">
+      <h3><i class="fa-solid fa-user-shield" style="color:var(--orange);margin-right:6px"></i>Transfer to Higher Role</h3>
+      <button class="modal-close" onclick="closeModal('transferModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="transferForm" method="POST">
+      @csrf
+      <div class="modal-body">
+        <div class="abox err" style="margin-bottom:14px">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <div>
+            <strong id="transfer-user-name">This user</strong> will be promoted to an Admin account with a new login.
+            Their current student/faculty account will be <strong>archived</strong> (its history is kept, but they can
+            no longer sign in as a student). This cannot be undone from this screen — review carefully before confirming.
+          </div>
+        </div>
+        <div class="fg">
+          <div class="flabel">Promote To</div>
+          <div class="sw">
+            <select name="role" class="fs" required>
+              <option value="admin">Admin</option>
+              @if($admin->role === 'super_admin')
+              <option value="super_admin">Super Admin</option>
+              @endif
+            </select>
+          </div>
+          @if($admin->role !== 'super_admin')
+          <div style="font-size:.68rem;color:var(--gray400);margin-top:3px">Only a Super Admin can grant Super Admin access.</div>
+          @endif
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="modal-btn secondary" onclick="closeModal('transferModal')">Cancel</button>
+        <button type="submit" class="modal-btn danger"><i class="fa-solid fa-user-shield"></i> Confirm Transfer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div class="dash-wrap">
   @include('admin.partials.sidebar')
   <main class="main">
@@ -143,11 +258,21 @@
               <td>
                 @php $sc=['pending'=>'tag-pend','active'=>'tag-active','deactivated'=>'tag-deact','archived'=>'tag-arch','rejected'=>'tag-rej'] @endphp
                 <span class="tag {{ $sc[$user->status]??'tag-arch' }}">{{ strtoupper($user->status) }}</span>
+                @if($user->research_restricted)
+                <span class="tag tag-rej" style="margin-top:3px;display:block;width:fit-content" title="{{ $user->research_restriction_note }}">
+                  <i class="fa-solid fa-ban"></i> RESEARCH RESTRICTED
+                </span>
+                @endif
               </td>
               <td style="font-size:.72rem;color:var(--gray600)">{{ $user->created_at->format('M d, Y') }}</td>
               <td>
                 <div style="display:flex;gap:4px;flex-wrap:wrap">
                   <a href="{{ route('admin.users.show', $user) }}" class="act-btn act-view" title="View"><i class="fa-solid fa-eye"></i></a>
+
+                  <button type="button" class="act-btn act-edit" title="Edit"
+                    onclick="openEditUser('{{ route('admin.users.update', $user) }}','{{ addslashes($user->first_name) }}','{{ addslashes($user->last_name) }}','{{ $user->email }}','{{ $user->campus }}','{{ $user->user_type }}')">
+                    <i class="fa-solid fa-pen"></i>
+                  </button>
 
                   @if($user->status === 'pending')
                     <form action="{{ route('admin.users.approve', $user) }}" method="POST" style="display:inline">@csrf<button type="submit" class="act-btn act-appr" title="Approve"><i class="fa-solid fa-check"></i></button></form>
@@ -165,6 +290,19 @@
 
                   @if($user->status === 'archived')
                     <form action="{{ route('admin.users.activate', $user) }}" method="POST" style="display:inline">@csrf<button type="submit" class="act-btn act-actv" title="Restore"><i class="fa-solid fa-rotate-left"></i></button></form>
+                  @endif
+
+                  @if(!$user->research_restricted)
+                    <button type="button" class="act-btn act-del" title="Restrict Research/PC-Lab" onclick="openRestrict('{{ route('admin.users.restrict-research', $user) }}')"><i class="fa-solid fa-ban"></i></button>
+                  @else
+                    <form action="{{ route('admin.users.unrestrict-research', $user) }}" method="POST" style="display:inline">@csrf<button type="submit" class="act-btn act-actv" title="Restore Research/PC-Lab Access"><i class="fa-solid fa-desktop"></i></button></form>
+                  @endif
+
+                  @if(!in_array($user->status, ['archived','rejected']))
+                    <button type="button" class="act-btn act-appr" style="background:var(--orange)" title="Transfer to Higher Role"
+                      onclick="openTransfer('{{ route('admin.users.transfer-role', $user) }}','{{ addslashes($user->full_name) }}')">
+                      <i class="fa-solid fa-user-shield"></i>
+                    </button>
                   @endif
 
                   <form action="{{ route('admin.users.destroy', $user) }}" method="POST" style="display:inline" onsubmit="return confirm('Permanently delete {{ $user->full_name }}?')">@csrf @method('DELETE')<button type="submit" class="act-btn act-del" title="Delete"><i class="fa-solid fa-trash"></i></button></form>
@@ -198,6 +336,24 @@ function openReject(url){
 function openDeact(url){
   document.getElementById('deactForm').setAttribute('action',url);
   openModal('deactModal');
+}
+function openRestrict(url){
+  document.getElementById('restrictForm').setAttribute('action',url);
+  openModal('restrictModal');
+}
+function openEditUser(url, first, last, email, campus, type){
+  document.getElementById('editUserForm').setAttribute('action', url);
+  document.getElementById('eu-first').value = first;
+  document.getElementById('eu-last').value = last;
+  document.getElementById('eu-email').value = email;
+  document.getElementById('eu-campus').value = campus;
+  document.getElementById('eu-type').value = type;
+  openModal('editUserModal');
+}
+function openTransfer(url, name){
+  document.getElementById('transferForm').setAttribute('action', url);
+  document.getElementById('transfer-user-name').textContent = name;
+  openModal('transferModal');
 }
 </script>
 @endpush

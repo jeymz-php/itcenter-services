@@ -33,6 +33,10 @@ class ServiceRequestController extends Controller
     }
 
     public function storePrinting(Request $request) {
+        if (!\App\Models\Setting::isWithinSystemHours()) {
+            return back()->withErrors(['error' => 'The IT Center is currently closed. Requests can only be submitted between ' . \App\Models\Setting::systemHoursLabel() . '.'])->withInput();
+        }
+
         $request->validate([
             'paper_size' => 'required|string',
             'copies'     => 'required|integer|min:1|max:100',
@@ -103,6 +107,10 @@ class ServiceRequestController extends Controller
     }
 
     public function storePhotocopy(Request $request) {
+        if (!\App\Models\Setting::isWithinSystemHours()) {
+            return back()->withErrors(['error' => 'The IT Center is currently closed. Requests can only be submitted between ' . \App\Models\Setting::systemHoursLabel() . '.'])->withInput();
+        }
+
         $request->validate([
             'paper_size' => 'required|string',
             'copies'     => 'required|integer|min:1|max:100',
@@ -146,10 +154,18 @@ class ServiceRequestController extends Controller
         $minutesLimit     = ServiceRequest::dailyResearchLimit();
         $minutesUsed      = ServiceRequest::minutesUsedToday(Auth::id());
         $minutesRemaining = ServiceRequest::minutesRemainingToday(Auth::id());
-        return view('user.requests.research', compact('durations','minutesLimit','minutesUsed','minutesRemaining'));
+        $researchRestricted = Auth::user()->research_restricted;
+        return view('user.requests.research', compact('durations','minutesLimit','minutesUsed','minutesRemaining','researchRestricted'));
     }
 
     public function storeResearch(Request $request) {
+        if (Auth::user()->research_restricted) {
+            return back()->withErrors(['error' => 'Your access to Research/PC-Lab requests has been restricted by an IT Center administrator. Contact the IT Center for details.']);
+        }
+        if (!\App\Models\Setting::isWithinSystemHours()) {
+            return back()->withErrors(['error' => 'The IT Center is currently closed. Requests can only be submitted between ' . \App\Models\Setting::systemHoursLabel() . '.']);
+        }
+
         $request->validate([
             'duration_minutes' => 'required|integer',
             'purpose'          => 'required|string|max:500',

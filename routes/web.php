@@ -106,6 +106,9 @@ Route::prefix('messages')->name('messages.')->group(function () {
         Route::post('/{user}/activate',    [UserManagementController::class, 'activate'])->name('activate');
         Route::post('/{user}/deactivate',  [UserManagementController::class, 'deactivate'])->name('deactivate');
         Route::post('/{user}/archive',     [UserManagementController::class, 'archive'])->name('archive');
+        Route::post('/{user}/restrict-research',   [UserManagementController::class, 'restrictResearch'])->name('restrict-research');
+        Route::post('/{user}/unrestrict-research', [UserManagementController::class, 'unrestrictResearch'])->name('unrestrict-research');
+        Route::post('/{user}/transfer-role',       [UserManagementController::class, 'transferRole'])->name('transfer-role');
     });
 
     // ── ACCOUNT REQUESTS (deactivate/reactivate/delete) ──
@@ -127,6 +130,10 @@ Route::prefix('messages')->name('messages.')->group(function () {
     Route::prefix('settings')->name('settings.')->group(function () {
         Route::get('/',  [App\Http\Controllers\Admin\SettingsController::class, 'index'])->name('index');
         Route::put('/',  [App\Http\Controllers\Admin\SettingsController::class, 'update'])->name('update');
+
+        Route::put('/hours',       [App\Http\Controllers\Admin\SettingsController::class, 'updateHours'])->name('hours');
+        Route::put('/version',     [App\Http\Controllers\Admin\SettingsController::class, 'updateVersion'])->name('version');
+        Route::put('/maintenance', [App\Http\Controllers\Admin\SettingsController::class, 'updateMaintenance'])->name('maintenance');
     });
 
     // ── SERVICE REQUESTS (admin) ──
@@ -165,6 +172,7 @@ Route::prefix('messages')->name('messages.')->group(function () {
 
     // ── REPORTS ──
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::get('/reports/pdf', [ReportController::class, 'downloadPdf'])->name('reports.pdf');
 
     // PUBLIC ADMIN PREFIX GROUP
     Route::prefix('guest-requests')->name('guest-requests.')->group(function () {

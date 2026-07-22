@@ -43,6 +43,50 @@
   </div>
 </div>
 
+<!-- EDIT ADMIN MODAL -->
+<div class="modal-bg" id="editAdminModal">
+  <div class="modal-box">
+    <div class="modal-hd">
+      <h3><i class="fa-solid fa-user-pen" style="color:var(--g600);margin-right:6px"></i>Edit Admin</h3>
+      <button class="modal-close" onclick="closeModal('editAdminModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="editAdminForm" method="POST">
+      @csrf @method('PUT')
+      <div class="modal-body">
+        <div class="fg"><div class="flabel">Admin ID</div><input type="text" id="ea-id" class="fc" disabled style="background:var(--gray100)"></div>
+        <div class="fg"><div class="flabel">Email</div><input type="email" name="email" id="ea-email" class="fc" required></div>
+        <div class="g2">
+          <div class="fg">
+            <div class="flabel">Campus</div>
+            <div class="sw"><select name="campus" id="ea-campus" class="fs" required>
+              @foreach(config('campuses') as $k=>$v)<option value="{{ $k }}">{{ $v }}</option>@endforeach
+            </select></div>
+          </div>
+          <div class="fg">
+            <div class="flabel">Role</div>
+            <div class="sw"><select name="role" id="ea-role" class="fs" required>
+              <option value="admin">Admin</option>
+              <option value="super_admin">Super Admin</option>
+            </select></div>
+          </div>
+        </div>
+        <div class="fg">
+          <div class="flabel">New Password (optional)</div>
+          <div class="iw">
+            <i class="fa-solid fa-lock ii"></i>
+            <input type="password" name="password" id="ea-pass" class="fc" placeholder="Leave blank to keep current password" style="padding-left:32px">
+            <button type="button" class="eye-btn" onclick="toggleEye('ea-pass','eaEye')"><i class="fa-solid fa-eye" id="eaEye"></i></button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="modal-btn secondary" onclick="closeModal('editAdminModal')">Cancel</button>
+        <button type="submit" class="modal-btn primary"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div class="dash-wrap">
   @include('admin.partials.sidebar')
   <main class="main">
@@ -82,6 +126,10 @@
               <td style="font-size:.72rem;color:var(--gray600)">{{ $a->created_at->format('M d, Y') }}</td>
               <td>
                 <div style="display:flex;gap:4px">
+                  <button type="button" class="act-btn act-edit" title="Edit"
+                    onclick="openEditAdmin('{{ route('admin.admins.update', $a) }}','{{ $a->admin_id }}','{{ $a->email }}','{{ $a->campus }}','{{ $a->role }}')">
+                    <i class="fa-solid fa-pen"></i>
+                  </button>
                   @if($a->id !== $admin->id)
                   <form action="{{ route('admin.admins.toggle', $a) }}" method="POST" style="display:inline">@csrf
                     <button type="submit" class="act-btn {{ ($a->status??'active')==='active'?'act-deact':'act-actv' }}" title="Toggle Status">
@@ -116,6 +164,14 @@ function toggleEye(fid,eid){
   const f=document.getElementById(fid),i=document.getElementById(eid);
   f.type=f.type==='password'?'text':'password';
   i.className=f.type==='text'?'fa-solid fa-eye-slash':'fa-solid fa-eye';
+}
+function openEditAdmin(url, adminId, email, campus, role){
+  document.getElementById('editAdminForm').setAttribute('action', url);
+  document.getElementById('ea-id').value = adminId;
+  document.getElementById('ea-email').value = email;
+  document.getElementById('ea-campus').value = campus;
+  document.getElementById('ea-role').value = role;
+  openModal('editAdminModal');
 }
 </script>
 @endpush

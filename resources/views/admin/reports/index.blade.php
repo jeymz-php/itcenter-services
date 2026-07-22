@@ -30,6 +30,10 @@
         </div>
         @endif
         <button type="submit" class="btn-sm"><i class="fa-solid fa-magnifying-glass"></i> Generate</button>
+        <a href="{{ route('admin.reports.pdf', request()->only('from','to','campus')) }}" target="_blank" class="btn-outline"
+           style="display:inline-flex;align-items:center;gap:6px;text-decoration:none">
+          <i class="fa-solid fa-file-pdf"></i> Download PDF
+        </a>
       </form>
 
       {{-- SUMMARY CARDS --}}

@@ -8,8 +8,10 @@ class User extends Authenticatable
     protected $fillable = [
         'id_number','first_name','last_name','email',
         'profile_picture','campus','user_type','password','status',
+        'research_restricted','research_restriction_note',
     ];
     protected $hidden = ['password'];
+    protected $casts = ['research_restricted' => 'boolean'];
 
     public function getFullNameAttribute(): string {
         return "{$this->first_name} {$this->last_name}";

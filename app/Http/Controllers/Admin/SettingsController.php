@@ -19,7 +19,21 @@ class SettingsController extends Controller
         $dailyPhotocopyLimit = ServiceRequest::dailyPhotocopyLimit();
         $dailyResearchLimit  = ServiceRequest::dailyResearchLimit();
 
-        return view('admin.settings.index', compact('dailyPrintingLimit', 'dailyPhotocopyLimit', 'dailyResearchLimit'));
+        $systemOpenTime  = Setting::get('system_open_time', '07:00');
+        $systemCloseTime = Setting::get('system_close_time', '21:30');
+
+        $systemVersion      = Setting::get('system_version', '1.0.0');
+        $systemVersionNotes = Setting::get('system_version_notes', '');
+
+        $maintenanceMode    = Setting::get('system_maintenance_mode', '0') === '1';
+        $maintenanceMessage = Setting::get('system_maintenance_message', 'The system is currently undergoing scheduled maintenance. Please check back soon.');
+
+        return view('admin.settings.index', compact(
+            'dailyPrintingLimit', 'dailyPhotocopyLimit', 'dailyResearchLimit',
+            'systemOpenTime', 'systemCloseTime',
+            'systemVersion', 'systemVersionNotes',
+            'maintenanceMode', 'maintenanceMessage'
+        ));
     }
 
     public function update(Request $request) {
@@ -36,5 +50,60 @@ class SettingsController extends Controller
         Setting::set('daily_research_minutes', (int) $request->daily_research_minutes);
 
         return back()->with('success', 'Daily usage limits updated.');
+    }
+
+    public function updateHours(Request $request) {
+        $this->superAdminGuard();
+
+        $request->validate([
+            'system_open_time'  => 'required|date_format:H:i',
+            'system_close_time' => 'required|date_format:H:i',
+        ]);
+
+        Setting::set('system_open_time', $request->system_open_time);
+        Setting::set('system_close_time', $request->system_close_time);
+
+        return back()->with('success', 'System hours updated.');
+    }
+
+    public function updateVersion(Request $request) {
+        $this->superAdminGuard();
+
+        $request->validate([
+            'system_version'       => 'required|string|max:30',
+            'system_version_notes' => 'nullable|string|max:2000',
+        ]);
+
+        $previous = Setting::get('system_version');
+
+        Setting::set('system_version', $request->system_version);
+        Setting::set('system_version_notes', $request->system_version_notes ?? '');
+
+        return back()->with('success',
+            $previous !== $request->system_version
+                ? "Version updated to {$request->system_version}. Users will see the update notice next time they log in."
+                : "Version notes updated."
+        );
+    }
+
+    public function updateMaintenance(Request $request) {
+        $this->superAdminGuard();
+
+        $request->validate([
+            'system_maintenance_mode'    => 'nullable|boolean',
+            'system_maintenance_message' => 'nullable|string|max:1000',
+        ]);
+
+        $enabled = $request->boolean('system_maintenance_mode');
+
+        Setting::set('system_maintenance_mode', $enabled ? '1' : '0');
+        if ($request->filled('system_maintenance_message')) {
+            Setting::set('system_maintenance_message', $request->system_maintenance_message);
+        }
+
+        return back()->with('success', $enabled
+            ? 'Maintenance mode is now ON — students/faculty cannot access the system. Admin access remains open.'
+            : 'Maintenance mode is now OFF — the system is accessible to everyone again.'
+        );
     }
 }

@@ -192,6 +192,14 @@
   @else
   {{-- ── REQUEST FORM (no active session) ── --}}
 
+  @if($researchRestricted)
+  <div class="verify-state" style="background:var(--white);border-radius:16px;border:1.5px solid var(--gray200);box-shadow:var(--shadow-sm)">
+    <div class="vi" style="background:var(--red-bg);color:var(--red)"><i class="fa-solid fa-ban"></i></div>
+    <h3>Research/PC-Lab Access Restricted</h3>
+    <p>An IT Center administrator has restricted your access to this service. Please visit or contact the IT Center for more information.</p>
+  </div>
+  @else
+
   {{-- Pending requests notice --}}
   @php
     $pendingResearch = \App\Models\ServiceRequest::where('user_id',$user->id)
@@ -290,6 +298,7 @@
       </button>
     </form>
   </div>
+  @endif
   @endif
 </div>
 

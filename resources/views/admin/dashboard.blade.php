@@ -2,6 +2,7 @@
 @section('title','Admin Dashboard | IT Services System')
 @section('body-class','dash-page')
 @section('content')
+@include('partials.version-modal')
 
 @php
 $admin = session('admin');

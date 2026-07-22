@@ -184,6 +184,109 @@ class UserManagementController extends Controller
         return redirect()->route('admin.users.index')->with('success', "User {$name} deleted.");
     }
 
+    // Restrict a student/faculty account from submitting Research/PC-Lab requests
+    // (e.g. following a report of inappropriate computer use). Everything else
+    // on their account keeps working — this only blocks that one service.
+    public function restrictResearch(Request $request, User $user) {
+        $admin = $this->adminGuard();
+        $this->assertInScope($admin, $user);
+        $request->validate(['reason' => 'required|string|max:500']);
+
+        $user->update([
+            'research_restricted'      => true,
+            'research_restriction_note'=> $request->reason,
+        ]);
+
+        AdminNotification::notify(
+            'research_restricted','Research/PC-Lab Access Restricted',
+            "{$user->full_name}'s access to Research/PC-Lab requests has been restricted. Reason: {$request->reason}",
+            $user, route('admin.users.index'), 'fa-desktop'
+        );
+
+        return back()->with('success', "{$user->full_name} is now restricted from Research/PC-Lab requests.");
+    }
+
+    public function unrestrictResearch(User $user) {
+        $admin = $this->adminGuard();
+        $this->assertInScope($admin, $user);
+
+        $user->update([
+            'research_restricted'      => false,
+            'research_restriction_note'=> null,
+        ]);
+
+        AdminNotification::notify(
+            'research_unrestricted','Research/PC-Lab Access Restored',
+            "{$user->full_name}'s access to Research/PC-Lab requests has been restored.",
+            $user, route('admin.users.index'), 'fa-desktop'
+        );
+
+        return back()->with('success', "{$user->full_name}'s Research/PC-Lab access has been restored.");
+    }
+
+    // Promote a student/faculty account to an Admin account. This creates a
+    // brand-new record in the separate `admins` table (students/faculty and
+    // admins are entirely different login systems in this app) and archives
+    // the original User record so the same person isn't simultaneously a
+    // logged-in student AND an admin — their old service-request history
+    // stays intact under the archived account for records purposes.
+    //
+    // Security boundary: a regular Admin can only promote someone to the
+    // 'admin' role, within their own campus. Only a Super Admin can grant
+    // the 'super_admin' role — this mirrors the existing rule that only
+    // Super Admins can manage the admins table at all, so a regular Admin
+    // can never mint a new Super Admin (themselves or anyone else).
+    public function transferRole(Request $request, User $user) {
+        $admin = $this->adminGuard();
+        $this->assertInScope($admin, $user);
+
+        $request->validate([
+            'role' => 'required|in:admin,super_admin',
+        ]);
+
+        if ($request->role === 'super_admin' && $admin->role !== 'super_admin') {
+            abort(403, 'Only a Super Admin can grant Super Admin access.');
+        }
+
+        if (\App\Models\Admin::where('email', $user->email)->exists()) {
+            return back()->withErrors(['error' => "{$user->email} is already used by an existing admin account."]);
+        }
+
+        // Generate a unique ADMIN### id
+        $next = \App\Models\Admin::count() + 1;
+        do {
+            $adminId = 'ADMIN' . str_pad($next, 3, '0', STR_PAD_LEFT);
+            $next++;
+        } while (\App\Models\Admin::where('admin_id', $adminId)->exists());
+
+        // One-time random password — shown once in the success message below.
+        // The user has no existing password we can safely carry over (we only
+        // have the hash, not the plaintext), and reusing a student password
+        // for a newly-privileged admin account isn't good practice anyway.
+        $tempPassword = \Illuminate\Support\Str::random(12);
+
+        $newAdmin = \App\Models\Admin::create([
+            'admin_id' => $adminId,
+            'email'    => $user->email,
+            'campus'   => $user->campus,
+            'role'     => $request->role,
+            'password' => \Illuminate\Support\Facades\Hash::make($tempPassword),
+        ]);
+
+        $user->update(['status' => 'archived']);
+
+        AdminNotification::notify(
+            'user_promoted','User Promoted to Admin',
+            "{$user->full_name} ({$user->id_number}) was promoted to ".($request->role==='super_admin'?'Super Admin':'Admin')." as {$adminId} by {$admin->admin_id}.",
+            $user, route('admin.admins.index'), 'fa-user-shield'
+        );
+
+        return back()->with('success',
+            "{$user->full_name} promoted to " . ($request->role === 'super_admin' ? 'Super Admin' : 'Admin') .
+            " — Admin ID: {$adminId}, Temporary Password: {$tempPassword} (share this securely — it will not be shown again). Their student account has been archived."
+        );
+    }
+
     public function approveRequest(Request $request, \App\Models\AccountRequest $accountRequest) {
         $admin = $this->adminGuard();
         $user = $accountRequest->user;
