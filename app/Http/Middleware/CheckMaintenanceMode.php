@@ -20,6 +20,11 @@ class CheckMaintenanceMode
                 'system_maintenance_message',
                 'The system is currently undergoing scheduled maintenance. Please check back soon.'
             );
+
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return response()->json(['message' => $message, 'maintenance' => true], 503);
+            }
+
             return response()->view('maintenance', compact('message'), 503);
         }
 
