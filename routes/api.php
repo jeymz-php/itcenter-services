@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ServiceRequestController;
+use App\Http\Controllers\Api\ProfileController;
 
 /*
 |--------------------------------------------------------------------------
@@ -38,5 +39,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/requests',                    [ServiceRequestController::class, 'history']);
     Route::post('/requests/{serviceRequest}/extend', [ServiceRequestController::class, 'requestExtend']);
+    Route::get('/requests/{serviceRequest}/receipt', [ServiceRequestController::class, 'downloadReceipt']);
     Route::post('/detect-pages',               [ServiceRequestController::class, 'detectPages']);
+
+    Route::get('/profile',            [ProfileController::class, 'show']);
+    Route::post('/profile',           [ProfileController::class, 'update']);
+    Route::put('/profile/password',   [ProfileController::class, 'updatePassword']);
+    Route::post('/profile/deactivate',[ProfileController::class, 'requestDeactivation']);
+    Route::post('/profile/delete',    [ProfileController::class, 'requestDeletion']);
 });

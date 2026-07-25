@@ -53,28 +53,35 @@ class AuthController extends Controller
         $userTypes = ['student', 'faculty_staff'];
 
         $request->validate([
-            'id_number'  => 'required|string|size:8|unique:users',
-            'first_name' => 'required|string|max:100',
-            'last_name'  => 'required|string|max:100',
-            'email'      => 'required|email|unique:users',
-            'campus'     => 'required|in:' . implode(',', $campuses),
-            'user_type'  => 'required|in:' . implode(',', $userTypes),
-            'password'   => [
+            'id_number'       => 'required|string|size:8|unique:users',
+            'first_name'      => 'required|string|max:100',
+            'last_name'       => 'required|string|max:100',
+            'email'           => 'required|email|unique:users',
+            'campus'          => 'required|in:' . implode(',', $campuses),
+            'user_type'       => 'required|in:' . implode(',', $userTypes),
+            'password'        => [
                 'required', 'string', 'min:8', 'confirmed',
                 'regex:/[A-Z]/', 'regex:/[0-9]/', 'regex:/[@$!%*#?&]/',
             ],
-            'terms' => 'accepted',
+            'profile_picture' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
+            'terms'           => 'accepted',
         ]);
 
+        $picPath = null;
+        if ($request->hasFile('profile_picture')) {
+            $picPath = $request->file('profile_picture')->store('profile_pictures', 'public');
+        }
+
         $user = User::create([
-            'id_number'  => $request->id_number,
-            'first_name' => $request->first_name,
-            'last_name'  => $request->last_name,
-            'email'      => $request->email,
-            'campus'     => $request->campus,
-            'user_type'  => $request->user_type,
-            'password'   => Hash::make($request->password),
-            'status'     => 'pending',
+            'id_number'       => $request->id_number,
+            'first_name'      => $request->first_name,
+            'last_name'       => $request->last_name,
+            'email'           => $request->email,
+            'profile_picture' => $picPath,
+            'campus'          => $request->campus,
+            'user_type'       => $request->user_type,
+            'password'        => Hash::make($request->password),
+            'status'          => 'pending',
         ]);
 
         $token = $user->createToken('android-app')->plainTextToken;
@@ -111,7 +118,7 @@ class AuthController extends Controller
             'status'               => $user->status,
             'research_restricted'  => (bool) $user->research_restricted,
             'profile_picture_url'  => $user->profile_picture
-                ? \Illuminate\Support\Facades\Storage::url($user->profile_picture)
+                ? request()->getSchemeAndHttpHost() . '/storage/' . $user->profile_picture
                 : null,
         ];
     }

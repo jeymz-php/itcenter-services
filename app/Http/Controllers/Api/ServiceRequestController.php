@@ -13,10 +13,6 @@ use Illuminate\Support\Facades\Auth;
 class ServiceRequestController extends Controller
 {
     // ── DASHBOARD ──
-    // One call gives the Android app everything the web dashboard shows:
-    // today's usage across all three services, any active PC session, and
-    // recent request history — avoids the app needing several round trips
-    // just to render its home screen.
     public function dashboard() {
         $user = Auth::user();
 
@@ -282,6 +278,21 @@ class ServiceRequestController extends Controller
         $pages = \App\Services\FilePageDetector::detect($request->file('file'));
 
         return response()->json(['pages' => $pages, 'success' => $pages !== null]);
+    }
+
+    // Streams the exact same PDF the web app generates — same Blade view,
+    // same dynamic receipt height — just token-authenticated instead of
+    // session-authenticated, and streamed as raw bytes for the app to save
+    // and open locally rather than rendered inline in a browser tab.
+    public function downloadReceipt(ServiceRequest $serviceRequest) {
+        if ($serviceRequest->user_id !== Auth::id()) abort(403);
+
+        $r = $serviceRequest->load(['user', 'computer', 'computerSession', 'admin']);
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('user.requests.pdf-report', compact('r'))
+                   ->setPaper([0, 0, 226.77, $r->estimatedReceiptHeightPt()]);
+
+        return $pdf->stream("Receipt-{$r->request_number}.pdf");
     }
 
     private function requestPayload(ServiceRequest $r): array {

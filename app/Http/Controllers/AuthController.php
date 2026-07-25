@@ -59,7 +59,7 @@ class AuthController extends Controller
                 'required','string','min:8','confirmed',
                 'regex:/[A-Z]/','regex:/[0-9]/','regex:/[@$!%*#?&]/',
             ],
-            'profile_picture'  => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+            'profile_picture' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
             'terms'            => 'accepted',
         ]);
 
