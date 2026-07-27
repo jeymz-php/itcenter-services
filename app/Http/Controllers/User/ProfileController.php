@@ -20,7 +20,7 @@ class ProfileController extends Controller
     public function changePassword(Request $request) {
         $request->validate([
             'current_password' => 'required|string',
-            'password'         => 'required|string|min:8|confirmed|regex:/[A-Z]/|regex:/[0-9]/|regex:/[@$!%*#?&]/',
+            'password'         => 'required|string|min:8|confirmed|regex:/[A-Z]/|regex:/[0-9]/',
         ]);
         $user = Auth::user();
         if (!Hash::check($request->current_password, $user->password)) {

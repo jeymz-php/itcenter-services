@@ -16,7 +16,7 @@
       <h4>1. Document Submission</h4>
       <p>Bring the original document to the IT Center. Any document type is accepted.</p>
       <h4>2. Copy Limits</h4>
-      <p>Maximum of 100 copies per request.</p>
+      <p>Maximum of 10 copies per request.</p>
       <h4>3. Processing Time</h4>
       <p>Typically completed within 10–20 minutes depending on queue.</p>
       <h4>4. Document Care</h4>

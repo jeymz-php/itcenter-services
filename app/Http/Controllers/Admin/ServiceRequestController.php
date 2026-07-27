@@ -49,7 +49,7 @@ class ServiceRequestController extends Controller
             $s = $request->search;
             $query->where(function($q) use ($s) {
                 $q->where('request_number','like',"%$s%")
-                  ->orWhereHas('user', fn($u) => $u->where('first_name','like',"%$s%")
+                ->orWhereHas('user', fn($u) => $u->where('first_name','like',"%$s%")
                                                     ->orWhere('last_name','like',"%$s%")
                                                     ->orWhere('id_number','like',"%$s%"));
             });
@@ -64,6 +64,10 @@ class ServiceRequestController extends Controller
         if ($admin->role !== 'super_admin') {
             $countsQuery->whereHas('user', fn($u) => $u->where('campus', $admin->campus));
         }
+
+        if ($request->service_type) $countsQuery->where('service_type', $request->service_type);
+        if ($request->campus && $admin->role === 'super_admin') $countsQuery->whereHas('user', fn($u) => $u->where('campus', $request->campus));
+
         $countsBase = $countsQuery->get();
         $counts = [
             'all'        => $countsBase->count(),

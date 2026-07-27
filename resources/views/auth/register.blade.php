@@ -189,7 +189,7 @@
         <div class="flabel"><i class="fa-solid fa-lock"></i> Password</div>
         <div class="iw">
           <i class="fa-solid fa-lock ii"></i>
-          <input type="password" name="password" id="rpass" class="fc" placeholder="Password (8+, Uppercase, Number, Symbol)" oninput="checkStrength(this.value)" required>
+          <input type="password" name="password" id="rpass" class="fc" placeholder="Password (8+, Uppercase, Number)" oninput="checkStrength(this.value)" required>
           <button type="button" class="eye-btn" onclick="toggleEye('rpass','re1')"><i class="fa-solid fa-eye" id="re1"></i></button>
         </div>
         <div class="str-bar">
@@ -199,6 +199,13 @@
           <div class="str-seg" id="s4"></div>
         </div>
         <div class="str-txt" id="str-lbl">Enter a password</div>
+
+        <div style="background:var(--gray100);border-radius:8px;padding:10px 12px;margin-top:8px">
+          <div id="req-length" style="font-size:.72rem;color:var(--gray400);margin-bottom:3px">○ At least 8 characters</div>
+          <div id="req-upper" style="font-size:.72rem;color:var(--gray400);margin-bottom:3px">○ One uppercase letter (A–Z)</div>
+          <div id="req-number" style="font-size:.72rem;color:var(--gray400);margin-bottom:3px">○ One number (0–9)</div>
+          <div id="req-symbol" style="font-size:.72rem;color:var(--gray400)">○ One symbol (@$!%*#?&amp;) — optional, but recommended</div>
+        </div>
       </div>
 
       <!-- Confirm Password -->
@@ -254,11 +261,21 @@ function previewPic(input){
 }
 
 function checkStrength(v){
+  const hasLength=v.length>=8;
+  const hasUpper=/[A-Z]/.test(v);
+  const hasNumber=/[0-9]/.test(v);
+  const hasSymbol=/[@$!%*#?&]/.test(v);
+
+  setReq('req-length', hasLength, 'At least 8 characters');
+  setReq('req-upper', hasUpper, 'One uppercase letter (A–Z)');
+  setReq('req-number', hasNumber, 'One number (0–9)');
+  setReq('req-symbol', hasSymbol, 'One symbol (@$!%*#?&) — optional, but recommended');
+
   let s=0;
-  if(v.length>=8)s++;
-  if(/[A-Z]/.test(v))s++;
-  if(/[0-9]/.test(v))s++;
-  if(/[@$!%*#?&]/.test(v))s++;
+  if(hasLength)s++;
+  if(hasUpper)s++;
+  if(hasNumber)s++;
+  if(hasSymbol)s++;
   const segs=document.querySelectorAll('.str-seg');
   const lbls=['','Weak','Fair','Good','Strong'];
   const cls=['','s1','s2','s3','s4'];
@@ -269,6 +286,12 @@ function checkStrength(v){
   document.getElementById('str-lbl').textContent=v.length?lbls[s]:'Enter a password';
   document.getElementById('str-lbl').style.color=
     s<=1?'#e53e3e':s===2?'#f5a623':s===3?'var(--g400)':'var(--g600)';
+}
+
+function setReq(id, met, label){
+  const el=document.getElementById(id);
+  el.textContent=(met?'✓ ':'○ ')+label;
+  el.style.color=met?'var(--g600)':'var(--gray400)';
 }
 </script>
 @endpush

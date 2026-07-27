@@ -70,7 +70,7 @@ class ProfileController extends Controller
             'current_password' => 'required|string',
             'password'         => [
                 'required', 'string', 'min:8', 'confirmed',
-                'regex:/[A-Z]/', 'regex:/[0-9]/', 'regex:/[@$!%*#?&]/',
+                'regex:/[A-Z]/', 'regex:/[0-9]/',
             ],
         ]);
 

@@ -61,7 +61,7 @@ class AuthController extends Controller
             'user_type'       => 'required|in:' . implode(',', $userTypes),
             'password'        => [
                 'required', 'string', 'min:8', 'confirmed',
-                'regex:/[A-Z]/', 'regex:/[0-9]/', 'regex:/[@$!%*#?&]/',
+                'regex:/[A-Z]/', 'regex:/[0-9]/',
             ],
             'profile_picture' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
             'terms'           => 'accepted',
