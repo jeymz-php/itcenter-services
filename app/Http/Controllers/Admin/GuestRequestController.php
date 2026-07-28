@@ -59,7 +59,7 @@ class GuestRequestController extends Controller
         $admin = $this->guard();
         $this->assertInScope($admin, $guestRequest);
         $computers = $guestRequest->service_type === 'research'
-            ? Computer::where('status','available')->orderBy('sort_order')->get()
+            ? Computer::where('status','available')->where('campus', $guestRequest->campus)->orderBy('sort_order')->get()
             : collect();
         $session = $guestRequest->computerSession;
         return view('admin.guest-requests.show', [

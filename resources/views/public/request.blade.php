@@ -519,7 +519,7 @@ body{background:var(--offwhite)}
               <div class="flabel"><i class="fa-solid fa-expand" style="color:var(--orange)"></i> Paper Size <span style="color:var(--red)">*</span></div>
               <div class="paper-grid">
                 @foreach($paperSizes as $ps)
-                <label style="cursor:pointer{{ $ps->stock<=0?' opacity:.5;pointer-events:none':'' }}">
+                <label data-campus="{{ $ps->campus }}" class="campus-filtered-opt" style="cursor:pointer{{ $ps->stock<=0?' opacity:.5;pointer-events:none':'' }}">
                   <input type="radio" name="paper_size" value="{{ $ps->value }}" style="display:none" {{ old('paper_size')===$ps->value?'checked':'' }} {{ $ps->stock<=0?'disabled':'' }}>
                   <div class="paper-opt" style="border-color:var(--gray200)">
                     <div style="font-size:.82rem;font-weight:700">{{ explode(' ',$ps->name)[0] }}</div>

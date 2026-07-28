@@ -16,10 +16,6 @@ class ReportController extends Controller
         $from = $request->from ?? now()->startOfMonth()->toDateString();
         $to   = $request->to   ?? now()->toDateString();
 
-        // Regular admins are always locked to their own campus. Super admins can
-        // pick one campus from the filter, or leave it blank to see every campus
-        // combined (the byCampus breakdown below still shows the per-campus split
-        // either way).
         $campus = $admin->role === 'super_admin' ? $request->campus : $admin->campus;
 
         $byService = ServiceRequest::selectRaw('service_type, count(*) as total, sum(case when status="completed" then 1 else 0 end) as completed, sum(case when status="rejected" then 1 else 0 end) as rejected')
@@ -31,6 +27,21 @@ class ReportController extends Controller
             ->whereBetween('created_at', [$from, $to.' 23:59:59'])
             ->when($campus, fn($q) => $q->whereHas('user', fn($u) => $u->where('campus', $campus)))
             ->groupBy('date')->orderBy('date')->get();
+
+        $byDayPaperUsage = ServiceRequest::selectRaw("
+                DATE(created_at) as date,
+                SUM(CASE WHEN service_type = 'printing' THEN COALESCE(detected_pages, 1) * copies ELSE 0 END) as printing_sheets,
+                SUM(CASE WHEN service_type = 'photocopy' THEN copies ELSE 0 END) as photocopy_sheets
+            ")
+            ->whereIn('service_type', ['printing', 'photocopy'])
+            ->whereNotIn('status', ['rejected', 'cancelled'])
+            ->whereBetween('created_at', [$from, $to.' 23:59:59'])
+            ->when($campus, fn($q) => $q->whereHas('user', fn($u) => $u->where('campus', $campus)))
+            ->groupBy('date')->orderBy('date')->get()
+            ->map(function ($row) {
+                $row->total_sheets = $row->printing_sheets + $row->photocopy_sheets;
+                return $row;
+            });
 
         $byCampus = ServiceRequest::selectRaw('users.campus, count(*) as total')
             ->join('users','users.id','=','service_requests.user_id')
@@ -56,7 +67,7 @@ class ReportController extends Controller
                                 ->sum('duration_minutes') / 60, 1),
         ];
 
-        return view('admin.reports.index', compact('byService','byDay','byCampus','totals','from','to','campus'));
+        return view('admin.reports.index', compact('byService','byDay','byDayPaperUsage','byCampus','totals','from','to','campus'));
     }
 
     public function downloadPdf(Request $request) {
@@ -94,10 +105,6 @@ class ReportController extends Controller
                                 ->sum('duration_minutes') / 60, 1),
         ];
 
-        // Per-user breakdown: every user with at least one request in this period,
-        // and what they actually requested/used — fetched fresh from the DB, not
-        // estimated. This is the "what each user requested/used" data explicitly
-        // asked for in the PDF.
         $userBreakdown = User::query()
             ->when($campus, fn($q) => $q->where('campus', $campus))
             ->whereHas('serviceRequests', fn($q) => $q->whereBetween('created_at', [$from, $to.' 23:59:59']))
