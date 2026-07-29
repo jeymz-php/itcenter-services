@@ -260,6 +260,36 @@
           </div>
           @endif
 
+          {{-- DAILY LIMIT STATUS --}}
+          <div class="profile-card">
+            <div class="profile-card-hd"><i class="fa-solid fa-gauge-high"></i> Daily Limit Status <span style="font-weight:400;font-size:.7rem;color:var(--gray400)">— for {{ $gr->email }}</span></div>
+            <div class="profile-card-body" style="padding:14px 18px">
+              @php
+                $usageRows = [
+                  ['printing',  '🖨', 'Printing',  $usage['printing'],  'page',   'var(--blue)'],
+                  ['photocopy', '📋', 'Photocopy', $usage['photocopy'], 'page',   'var(--orange)'],
+                  ['research',  '🖥', 'Research/PC-Lab', $usage['research'], 'minute', 'var(--g600)'],
+                ];
+              @endphp
+              @foreach($usageRows as [$key, $icon, $label, $u, $unit, $color])
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0{{ !$loop->last ? ';border-bottom:1px solid var(--gray100)' : '' }}">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span>{{ $icon }}</span>
+                  <span style="font-size:.8rem;font-weight:700;color:var(--gray700)">{{ $label }}</span>
+                  @if($gr->service_type === $key)
+                  <span style="font-size:.62rem;font-weight:700;color:var(--g700);background:var(--g100);padding:2px 7px;border-radius:10px">THIS REQUEST</span>
+                  @endif
+                </div>
+                <div style="text-align:right">
+                  <div style="font-size:.82rem;font-weight:800;color:{{ $u['remaining']<=0 ? 'var(--red)' : $color }}">{{ $u['used'] }}/{{ $u['limit'] }} {{ $unit }}{{ $u['limit']==1?'':'s' }}</div>
+                  <div style="font-size:.65rem;color:var(--gray400)">{{ $u['remaining'] }} remaining today</div>
+                </div>
+              </div>
+              @endforeach
+              <div style="margin-top:8px;font-size:.66rem;color:var(--gray400)">Resets daily at 12:00 AM.</div>
+            </div>
+          </div>
+
           {{-- TIMELINE --}}
           <div class="profile-card">
             <div class="profile-card-hd"><i class="fa-solid fa-timeline"></i> Request Timeline</div>

@@ -327,4 +327,24 @@ class UserManagementController extends Controller
         ]);
         return back()->with('success','Request rejected.');
     }
+    
+    public function resetPassword(User $user) {
+        $admin = $this->adminGuard();
+        $this->assertInScope($admin, $user);
+
+        $temporaryPassword = \Illuminate\Support\Str::random(10);
+        $user->update(['password' => Hash::make($temporaryPassword)]);
+
+        \Illuminate\Support\Facades\Mail::to($user->email)->send(
+            new \App\Mail\TemporaryPasswordMail($user->first_name, $temporaryPassword, route('login'))
+        );
+
+        AdminNotification::notify(
+            'password_reset', 'Password Reset by Admin',
+            "{$user->full_name}'s password was reset by {$admin->admin_id}. A temporary password was emailed to them.",
+            $user, route('admin.users.index'), 'fa-key'
+        );
+
+        return back()->with('success', "A temporary password has been generated and emailed to {$user->full_name}.");
+    }
 }

@@ -62,10 +62,30 @@ class GuestRequestController extends Controller
             ? Computer::where('status','available')->where('campus', $guestRequest->campus)->orderBy('sort_order')->get()
             : collect();
         $session = $guestRequest->computerSession;
+
+        $usage = [
+            'printing' => [
+                'limit'     => GuestRequest::dailyPrintingLimit(),
+                'used'      => GuestRequest::printingPagesUsedToday($guestRequest->email),
+                'remaining' => GuestRequest::printingPagesRemainingToday($guestRequest->email),
+            ],
+            'photocopy' => [
+                'limit'     => GuestRequest::dailyPhotocopyLimit(),
+                'used'      => GuestRequest::photocopyPagesUsedToday($guestRequest->email),
+                'remaining' => GuestRequest::photocopyPagesRemainingToday($guestRequest->email),
+            ],
+            'research' => [
+                'limit'     => GuestRequest::dailyResearchLimit(),
+                'used'      => GuestRequest::minutesUsedToday($guestRequest->email),
+                'remaining' => GuestRequest::minutesRemainingToday($guestRequest->email),
+            ],
+        ];
+
         return view('admin.guest-requests.show', [
             'gr'        => $guestRequest,
             'computers' => $computers,
             'session'   => $session,
+            'usage'     => $usage,
         ]);
     }
 

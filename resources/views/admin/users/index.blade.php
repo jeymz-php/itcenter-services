@@ -197,6 +197,32 @@
   </div>
 </div>
 
+<!-- RESET PASSWORD MODAL -->
+<div class="modal-bg" id="resetPasswordModal">
+  <div class="modal-box">
+    <div class="modal-hd">
+      <h3><i class="fa-solid fa-key" style="color:var(--blue);margin-right:6px"></i>Reset Password</h3>
+      <button class="modal-close" onclick="closeModal('resetPasswordModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="resetPasswordForm" method="POST">
+      @csrf
+      <div class="modal-body">
+        <div class="abox warn">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <div>
+            This will immediately change <strong id="reset-password-user-name">this user's</strong> password to a new
+            random temporary one and email it to them. Their current password will stop working right away.
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="modal-btn secondary" onclick="closeModal('resetPasswordModal')">Cancel</button>
+        <button type="submit" class="modal-btn primary" style="background:var(--blue)"><i class="fa-solid fa-key"></i> Reset and Send Temporary Password</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div class="dash-wrap">
   @include('admin.partials.sidebar')
   <main class="main">
@@ -305,6 +331,13 @@
                     </button>
                   @endif
 
+                  @if(!in_array($user->status, ['archived','rejected']))
+                    <button type="button" class="act-btn act-appr" style="background:var(--blue)" title="Reset and Send Temporary Password"
+                      onclick="openResetPassword('{{ route('admin.users.reset-password', $user) }}','{{ addslashes($user->full_name) }}')">
+                      <i class="fa-solid fa-key"></i>
+                    </button>
+                  @endif
+
                   <form action="{{ route('admin.users.destroy', $user) }}" method="POST" style="display:inline" onsubmit="return confirm('Permanently delete {{ $user->full_name }}?')">@csrf @method('DELETE')<button type="submit" class="act-btn act-del" title="Delete"><i class="fa-solid fa-trash"></i></button></form>
                 </div>
               </td>
@@ -354,6 +387,11 @@ function openTransfer(url, name){
   document.getElementById('transferForm').setAttribute('action', url);
   document.getElementById('transfer-user-name').textContent = name;
   openModal('transferModal');
+}
+function openResetPassword(url, name){
+  document.getElementById('resetPasswordForm').setAttribute('action', url);
+  document.getElementById('reset-password-user-name').textContent = name;
+  openModal('resetPasswordModal');
 }
 </script>
 @endpush

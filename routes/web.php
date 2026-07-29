@@ -27,6 +27,11 @@ Route::get('/register',  [AuthController::class, 'showRegister'])->name('registe
 Route::post('/register', [AuthController::class, 'register'])->name('register.post');
 Route::post('/logout',   [AuthController::class, 'logout'])->name('logout');
 
+Route::get('/forgot-password',  [App\Http\Controllers\Auth\ForgotPasswordController::class, 'showForm'])->name('password.request');
+Route::post('/forgot-password', [App\Http\Controllers\Auth\ForgotPasswordController::class, 'sendResetLink'])->name('password.email');
+Route::get('/reset-password/{token}', [App\Http\Controllers\Auth\ResetPasswordController::class, 'showForm'])->name('password.reset.form');
+Route::post('/reset-password',        [App\Http\Controllers\Auth\ResetPasswordController::class, 'reset'])->name('password.update');
+
 // ── USER ROUTES ──
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [AuthController::class, 'dashboard'])->name('dashboard');
@@ -109,6 +114,7 @@ Route::prefix('messages')->name('messages.')->group(function () {
         Route::post('/{user}/restrict-research',   [UserManagementController::class, 'restrictResearch'])->name('restrict-research');
         Route::post('/{user}/unrestrict-research', [UserManagementController::class, 'unrestrictResearch'])->name('unrestrict-research');
         Route::post('/{user}/transfer-role',       [UserManagementController::class, 'transferRole'])->name('transfer-role');
+        Route::post('/{user}/reset-password',      [UserManagementController::class, 'resetPassword'])->name('reset-password');
     });
 
     // ── ACCOUNT REQUESTS (deactivate/reactivate/delete) ──
@@ -192,6 +198,7 @@ Route::prefix('messages')->name('messages.')->group(function () {
 // ── PUBLIC GUEST REQUESTS ──
 Route::get('/public-request',         [GuestRequestController::class, 'index'])->name('public.request');
 Route::post('/public-request',        [GuestRequestController::class, 'store'])->name('public.request.store');
+Route::get('/public-request/usage', [GuestRequestController::class, 'checkUsage'])->name('public.request.usage');
 Route::get('/public-request/success', [GuestRequestController::class, 'success'])->name('public.request.success');
 Route::get('/track',                  [GuestRequestController::class, 'track'])->name('public.track');
 Route::get('/track/session-status/{guestRequest}', [GuestRequestController::class, 'publicSessionStatus'])->name('public.session-status');

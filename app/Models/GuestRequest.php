@@ -54,4 +54,54 @@ class GuestRequest extends Model
             default     => 'var(--gray600)',
         };
     }
+
+    // ── DAILY LIMITS — GUESTS ──
+    public static function dailyPrintingLimit(): int {
+        return ServiceRequest::dailyPrintingLimit();
+    }
+
+    public static function dailyPhotocopyLimit(): int {
+        return ServiceRequest::dailyPhotocopyLimit();
+    }
+
+    public static function dailyResearchLimit(): int {
+        return ServiceRequest::dailyResearchLimit();
+    }
+
+    public static function printingPagesUsedToday(string $email): int {
+        return (int) static::where('email', $email)
+            ->where('service_type', 'printing')
+            ->whereNotIn('status', ['rejected', 'cancelled'])
+            ->where('created_at', '>=', now()->startOfDay())
+            ->get(['copies', 'detected_pages'])
+            ->sum(fn ($r) => ((int) ($r->detected_pages ?: 1)) * (int) $r->copies);
+    }
+
+    public static function printingPagesRemainingToday(string $email): int {
+        return max(0, self::dailyPrintingLimit() - self::printingPagesUsedToday($email));
+    }
+
+    public static function photocopyPagesUsedToday(string $email): int {
+        return (int) static::where('email', $email)
+            ->where('service_type', 'photocopy')
+            ->whereNotIn('status', ['rejected', 'cancelled'])
+            ->where('created_at', '>=', now()->startOfDay())
+            ->sum('copies');
+    }
+
+    public static function photocopyPagesRemainingToday(string $email): int {
+        return max(0, self::dailyPhotocopyLimit() - self::photocopyPagesUsedToday($email));
+    }
+
+    public static function minutesUsedToday(string $email): int {
+        return (int) static::where('email', $email)
+            ->where('service_type', 'research')
+            ->whereNotIn('status', ['rejected', 'cancelled'])
+            ->where('created_at', '>=', now()->startOfDay())
+            ->sum('duration_minutes');
+    }
+
+    public static function minutesRemainingToday(string $email): int {
+        return max(0, self::dailyResearchLimit() - self::minutesUsedToday($email));
+    }
 }

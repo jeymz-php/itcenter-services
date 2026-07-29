@@ -87,6 +87,9 @@
           <input type="password" name="password" id="lpass" class="fc" placeholder="Enter your password" required>
           <button type="button" class="eye-btn" onclick="toggleEye('lpass','le1')"><i class="fa-solid fa-eye" id="le1"></i></button>
         </div>
+        <div style="text-align:right;margin-top:6px">
+          <a href="{{ route('password.request') }}" style="font-size:.74rem;color:var(--g700);font-weight:700;text-decoration:none">Forgot Password?</a>
+        </div>
       </div>
 
       <button type="submit" class="btn"><i class="fa-solid fa-right-to-bracket"></i> Sign In</button>

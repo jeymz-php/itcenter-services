@@ -350,7 +350,7 @@ body{background:var(--offwhite)}
             <div class="flabel"><i class="fa-solid fa-envelope"></i> Email Address <span style="color:var(--red)">*</span></div>
             <div class="iw">
               <i class="fa-solid fa-envelope ii"></i>
-              <input type="email" name="email" class="fc" placeholder="your@email.com" value="{{ old('email') }}" required>
+              <input type="email" name="email" id="guest-email-input" class="fc" placeholder="your@email.com" value="{{ old('email') }}" required>
             </div>
           </div>
           <div class="fg" id="id-number-group">
@@ -449,6 +449,7 @@ body{background:var(--offwhite)}
 
           {{-- PRINTING FIELDS --}}
           <div id="printing-fields" style="display:none">
+            <div id="printing-usage-banner" class="abox info" style="display:none;margin-bottom:14px"></div>
             <div class="fg">
               <div class="flabel"><i class="fa-solid fa-file-arrow-up" style="color:var(--blue)"></i> Upload File <span style="color:var(--red)">*</span></div>
               <div id="drop-zone" onclick="document.getElementById('file-input').click()">
@@ -674,6 +675,35 @@ function filterOptionsByCampus() {
 }
 document.getElementById('guest-campus-select')?.addEventListener('change', filterOptionsByCampus);
 document.addEventListener('DOMContentLoaded', filterOptionsByCampus);
+
+let guestUsageCache = null;
+function fetchGuestUsage() {
+  const emailInput = document.getElementById('guest-email-input');
+  const email = emailInput ? emailInput.value.trim() : '';
+  if (!email || !email.includes('@')) return;
+
+  fetch(`{{ route('public.request.usage') }}?email=${encodeURIComponent(email)}`)
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (!data) return;
+      guestUsageCache = data;
+      renderUsageBanner('printing-usage-banner', '🖨', 'Printing', data.printing, 'page');
+      renderUsageBanner('photocopy-usage-banner', '📋', 'Photocopy', data.photocopy, 'page');
+      renderUsageBanner('research-usage-banner', '🖥', 'Research/PC-Lab', data.research, 'minute');
+    })
+    .catch(() => {});
+}
+
+function renderUsageBanner(id, icon, label, usage, unit) {
+  const el = document.getElementById(id);
+  if (!el || !usage) return;
+  const plural = usage.limit === 1 ? '' : 's';
+  el.innerHTML = `<i class="fa-solid fa-circle-info"></i><span>${icon} <strong>${label}:</strong> ${usage.used}/${usage.limit} ${unit}${plural} used today for this email — <strong>${usage.remaining} remaining</strong>. Resets daily at 12:00 AM.</span>`;
+  el.style.display = 'flex';
+}
+
+document.getElementById('guest-email-input')?.addEventListener('blur', fetchGuestUsage);
+document.addEventListener('DOMContentLoaded', fetchGuestUsage);
 
 // Role selection
 function selectRole(role, el) {
