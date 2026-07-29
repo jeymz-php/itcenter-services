@@ -54,6 +54,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/requests/research',  [ServiceRequestController::class, 'storeResearch'])->name('requests.research.store');
     Route::get('/requests/history',    [ServiceRequestController::class, 'history'])->name('requests.history');
     Route::post('/requests/{serviceRequest}/request-extend', [ServiceRequestController::class, 'requestExtend'])->name('requests.request-extend');
+    Route::post('/ratings', [App\Http\Controllers\User\RatingController::class, 'store'])->name('ratings.store');
 
     // Messages
     Route::get('/messages',              [App\Http\Controllers\User\MessageController::class, 'index'])->name('user.messages.index');
@@ -180,6 +181,8 @@ Route::prefix('messages')->name('messages.')->group(function () {
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('/reports/pdf', [ReportController::class, 'downloadPdf'])->name('reports.pdf');
 
+    Route::get('/review-ratings', [App\Http\Controllers\Admin\RatingController::class, 'index'])->name('review-ratings.index');
+
     // PUBLIC ADMIN PREFIX GROUP
     Route::prefix('guest-requests')->name('guest-requests.')->group(function () {
         Route::get('/',                           [AdminGuestRequestController::class, 'index'])->name('index');
@@ -198,7 +201,8 @@ Route::prefix('messages')->name('messages.')->group(function () {
 // ── PUBLIC GUEST REQUESTS ──
 Route::get('/public-request',         [GuestRequestController::class, 'index'])->name('public.request');
 Route::post('/public-request',        [GuestRequestController::class, 'store'])->name('public.request.store');
-Route::get('/public-request/usage', [GuestRequestController::class, 'checkUsage'])->name('public.request.usage');
+Route::get('/public-request/usage',   [GuestRequestController::class, 'checkUsage'])->name('public.request.usage');
+Route::post('/public-request/detect-pages', [GuestRequestController::class, 'detectPages'])->name('public.request.detect-pages');
 Route::get('/public-request/success', [GuestRequestController::class, 'success'])->name('public.request.success');
 Route::get('/track',                  [GuestRequestController::class, 'track'])->name('public.track');
 Route::get('/track/session-status/{guestRequest}', [GuestRequestController::class, 'publicSessionStatus'])->name('public.session-status');

@@ -5,10 +5,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class ServiceRequest extends Model
 {
-    // Fallback defaults if no admin-configured value exists yet in the settings table
-    const DEFAULT_DAILY_PRINTING_LIMIT  = 10; // printing, in sheets
-    const DEFAULT_DAILY_PHOTOCOPY_LIMIT = 10; // photocopy, in sheets
-    const DEFAULT_DAILY_RESEARCH_LIMIT  = 60; // research/PC-lab minutes
+    const DEFAULT_DAILY_PRINTING_LIMIT  = 10;
+    const DEFAULT_DAILY_PHOTOCOPY_LIMIT = 10;
+    const DEFAULT_DAILY_RESEARCH_LIMIT  = 60;
 
     protected $fillable = [
         'request_number','user_id','service_type','status',
@@ -22,6 +21,7 @@ class ServiceRequest extends Model
 
     public function user()  { return $this->belongsTo(User::class); }
     public function admin() { return $this->belongsTo(Admin::class, 'reviewed_by'); }
+    public function rating() { return $this->hasOne(Rating::class); }
 
     public static function generateNumber(): string {
         $last = static::orderByDesc('id')->first();
@@ -52,14 +52,6 @@ class ServiceRequest extends Model
     public function computerSession() {
         return $this->hasOne(ComputerSession::class);
     }
-
-    // ── Daily usage limits (printing pages, photocopy pages, research minutes — each separate) ──
-    // Values are admin-configurable (Manage Settings, super admin only) and
-    // fall back to sensible defaults if never set. Usage counts everything
-    // except rejected/cancelled requests as "used" — pending and approved
-    // requests reserve the quota too, so it can't be gamed by stacking
-    // pending requests. Resets naturally at midnight since it only looks at
-    // today's rows (app timezone is Asia/Manila).
 
     public static function dailyPrintingLimit(): int {
         return (int) Setting::get('daily_printing_page_limit', self::DEFAULT_DAILY_PRINTING_LIMIT);
@@ -110,15 +102,9 @@ class ServiceRequest extends Model
         return max(0, self::dailyResearchLimit() - self::minutesUsedToday($userId));
     }
 
-    // Rough content-height estimate (in points) for the receipt-style PDF, so the
-    // generated page fits the actual content instead of leaving a large blank
-    // tail. Not pixel-perfect — just close enough to avoid an oversized page.
     public function estimatedReceiptHeightPt(): float {
-        // Fixed chrome: logos, campus header, doc title, request/status block,
-        // customer block, reviewed-by block, barcode, footer note, page margins.
         $height = 320;
 
-        // Service-detail rows vary by type
         $height += match ($this->service_type) {
             'printing'  => 6 * 12,
             'photocopy' => 3 * 12,
@@ -126,11 +112,9 @@ class ServiceRequest extends Model
             default     => 3 * 12,
         };
 
-        // Purpose text wraps roughly every 40 characters at this width/font
         $purposeLines = max(1, (int) ceil(strlen((string) $this->purpose) / 40));
         $height += $purposeLines * 12;
 
-        // Rejection note, if present, adds its own block
         if ($this->status === 'rejected' && $this->admin_note) {
             $noteLines = max(1, (int) ceil(strlen((string) $this->admin_note) / 40));
             $height += 20 + ($noteLines * 12);

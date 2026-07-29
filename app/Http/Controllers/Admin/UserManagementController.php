@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\AdminNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 
 class UserManagementController extends Controller
 {
@@ -14,7 +15,6 @@ class UserManagementController extends Controller
         return session('admin');
     }
 
-    // Regular admins are restricted to their own campus; super admins see everyone.
     private function assertInScope($admin, User $user) {
         if ($admin->role !== 'super_admin' && $user->campus !== $admin->campus) {
             abort(403, 'You can only manage users from your own campus.');
@@ -127,7 +127,10 @@ class UserManagementController extends Controller
     public function store(Request $request) {
         $admin = $this->adminGuard();
         $request->validate([
-            'id_number'  => 'required|string|size:8|unique:users',
+            'id_number'  => [
+                'required', 'string', 'size:8',
+                Rule::unique('users')->where(fn ($q) => $q->where('campus', $request->campus)),
+            ],
             'first_name' => 'required|string|max:100',
             'last_name'  => 'required|string|max:100',
             'email'      => 'required|email|unique:users',
@@ -135,7 +138,6 @@ class UserManagementController extends Controller
             'user_type'  => 'required|in:student,faculty_staff',
             'password'   => 'required|string|min:8',
         ]);
-        // Regular admins can only create users in their own campus, regardless of what was submitted
         $campus = $admin->role === 'super_admin' ? $request->campus : $admin->campus;
 
         $user = User::create([
@@ -167,7 +169,6 @@ class UserManagementController extends Controller
             'user_type'  => 'required|in:student,faculty_staff',
         ]);
         $data = $request->only('first_name','last_name','email','campus','user_type');
-        // Regular admins cannot move a user to a different campus
         if ($admin->role !== 'super_admin') $data['campus'] = $admin->campus;
         $user->update($data);
         if ($request->filled('password')) {
@@ -184,9 +185,6 @@ class UserManagementController extends Controller
         return redirect()->route('admin.users.index')->with('success', "User {$name} deleted.");
     }
 
-    // Restrict a student/faculty account from submitting Research/PC-Lab requests
-    // (e.g. following a report of inappropriate computer use). Everything else
-    // on their account keeps working — this only blocks that one service.
     public function restrictResearch(Request $request, User $user) {
         $admin = $this->adminGuard();
         $this->assertInScope($admin, $user);
@@ -224,18 +222,6 @@ class UserManagementController extends Controller
         return back()->with('success', "{$user->full_name}'s Research/PC-Lab access has been restored.");
     }
 
-    // Promote a student/faculty account to an Admin account. This creates a
-    // brand-new record in the separate `admins` table (students/faculty and
-    // admins are entirely different login systems in this app) and archives
-    // the original User record so the same person isn't simultaneously a
-    // logged-in student AND an admin — their old service-request history
-    // stays intact under the archived account for records purposes.
-    //
-    // Security boundary: a regular Admin can only promote someone to the
-    // 'admin' role, within their own campus. Only a Super Admin can grant
-    // the 'super_admin' role — this mirrors the existing rule that only
-    // Super Admins can manage the admins table at all, so a regular Admin
-    // can never mint a new Super Admin (themselves or anyone else).
     public function transferRole(Request $request, User $user) {
         $admin = $this->adminGuard();
         $this->assertInScope($admin, $user);
@@ -252,17 +238,12 @@ class UserManagementController extends Controller
             return back()->withErrors(['error' => "{$user->email} is already used by an existing admin account."]);
         }
 
-        // Generate a unique ADMIN### id
         $next = \App\Models\Admin::count() + 1;
         do {
             $adminId = 'ADMIN' . str_pad($next, 3, '0', STR_PAD_LEFT);
             $next++;
         } while (\App\Models\Admin::where('admin_id', $adminId)->exists());
 
-        // One-time random password — shown once in the success message below.
-        // The user has no existing password we can safely carry over (we only
-        // have the hash, not the plaintext), and reusing a student password
-        // for a newly-privileged admin account isn't good practice anyway.
         $tempPassword = \Illuminate\Support\Str::random(12);
 
         $newAdmin = \App\Models\Admin::create([
@@ -327,7 +308,7 @@ class UserManagementController extends Controller
         ]);
         return back()->with('success','Request rejected.');
     }
-    
+
     public function resetPassword(User $user) {
         $admin = $this->adminGuard();
         $this->assertInScope($admin, $user);

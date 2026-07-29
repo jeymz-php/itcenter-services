@@ -150,7 +150,6 @@
             </button>
           </div>
         </div>
-        {{-- Progress bar --}}
         <div style="background:rgba(255,255,255,.2);border-radius:6px;height:6px;margin-top:14px;overflow:hidden">
           <div id="session-progress" style="height:100%;border-radius:6px;background:rgba(255,255,255,.8);transition:width 1s linear;width:100%"></div>
         </div>
@@ -194,7 +193,71 @@
       </div>
       @endif
 
-      {{-- TODAY'S USAGE --}}
+      {{-- RATING PROMPT MODAL --}}
+      @if($pendingRating)
+      <div class="modal-bg" id="ratingModal">
+        <div class="modal-box" style="max-width:480px">
+          <div class="modal-hd">
+            <h3><i class="fa-solid fa-star" style="color:#f5a623;margin-right:6px"></i>Rate Your Experience</h3>
+            <button class="modal-close" onclick="closeModal('ratingModal')"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <form action="{{ route('ratings.store') }}" method="POST">
+            @csrf
+            <input type="hidden" name="service_request_id" value="{{ $pendingRating->id }}">
+            <input type="hidden" name="stars" id="stars-input" value="0">
+            <div class="modal-body">
+
+              <div class="abox info" style="margin-bottom:16px">
+                <i class="fa-solid fa-circle-info"></i>
+                <div>Your request <strong>{{ $pendingRating->request_number }}</strong> ({{ ucfirst($pendingRating->service_type) }}) has been completed. We'd love your feedback!</div>
+              </div>
+
+              <div class="fg">
+                <div class="flabel">Show My Details</div>
+                <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1.5px solid var(--gray200);border-radius:10px;margin-bottom:8px;cursor:pointer">
+                  <input type="radio" name="visibility" value="public" checked>
+                  <div>
+                    <div style="font-size:.8rem;font-weight:700;color:var(--gray800)">Show my Name, ID Number &amp; Campus publicly</div>
+                    <div style="font-size:.68rem;color:var(--gray400)">Your full details will be visible with this review.</div>
+                  </div>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1.5px solid var(--gray200);border-radius:10px;cursor:pointer">
+                  <input type="radio" name="visibility" value="anonymous">
+                  <div>
+                    <div style="font-size:.8rem;font-weight:700;color:var(--gray800)">Make me Anonymous</div>
+                    <div style="font-size:.68rem;color:var(--gray400)">Only part of your first name and last 4 ID digits will show (e.g. "Jam*** / ****0977"). Your campus still shows.</div>
+                  </div>
+                </label>
+              </div>
+
+              <div class="fg">
+                <div class="flabel">How would you rate your overall experience with this service — from submitting your request to how it was processed?</div>
+                <div id="star-selector" style="display:flex;gap:6px;font-size:1.8rem;margin-top:6px">
+                  @for($i=1;$i<=5;$i++)
+                  <i class="fa-regular fa-star star-icon" data-value="{{ $i }}" style="cursor:pointer;color:var(--gray300)"></i>
+                  @endfor
+                </div>
+              </div>
+
+              <div class="fg">
+                <div class="flabel">Comment</div>
+                <textarea name="comment" class="fc" rows="3" placeholder="Tell us more about your experience..."></textarea>
+              </div>
+
+              <div class="fg">
+                <div class="flabel">Suggestions / Questions <span style="color:var(--gray400);font-weight:400">(about the IT Center Services System)</span></div>
+                <textarea name="suggestions" class="fc" rows="3" placeholder="Any suggestions or questions for the IT Center?"></textarea>
+              </div>
+
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="modal-btn secondary" onclick="closeModal('ratingModal')">Maybe Later</button>
+              <button type="submit" class="modal-btn primary"><i class="fa-solid fa-paper-plane"></i> Submit Feedback</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      @endif
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px">
         <div style="background:var(--white);border-radius:14px;border:1.5px solid var(--gray200);padding:16px 18px;box-shadow:var(--shadow-sm)">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -346,6 +409,29 @@ input[type=radio]:checked+.dur-opt{border-color:var(--g500)!important;background
 function openModal(id){document.getElementById(id).classList.add('open')}
 function closeModal(id){document.getElementById(id).classList.remove('open')}
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open')}));
+
+@if($pendingRating)
+document.addEventListener('DOMContentLoaded', () => openModal('ratingModal'));
+
+document.querySelectorAll('#star-selector .star-icon').forEach(star => {
+  star.addEventListener('click', () => {
+    const value = parseInt(star.dataset.value, 10);
+    document.getElementById('stars-input').value = value;
+    document.querySelectorAll('#star-selector .star-icon').forEach(s => {
+      const v = parseInt(s.dataset.value, 10);
+      s.className = v <= value ? 'fa-solid fa-star star-icon' : 'fa-regular fa-star star-icon';
+      s.style.color = v <= value ? '#f5a623' : 'var(--gray300)';
+    });
+  });
+});
+
+document.querySelector('#ratingModal form')?.addEventListener('submit', (e) => {
+  if (parseInt(document.getElementById('stars-input').value, 10) < 1) {
+    e.preventDefault();
+    alert('Please select a star rating before submitting.');
+  }
+});
+@endif
 
 @if(isset($activeSession) && $activeSession)
 const TOTAL_SEC = {{ $activeSession->total_minutes * 60 }};

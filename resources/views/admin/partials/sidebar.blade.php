@@ -135,7 +135,7 @@
        class="sb-link {{ request()->routeIs('admin.reports.*') ? 'active' : '' }}">
       <i class="fa-solid fa-chart-line"></i> Reports
     </a>
-    <a href="#" class="sb-link"><i class="fa-solid fa-star"></i> Review Ratings</a>
+    <a href="{{ route('admin.review-ratings.index') }}" class="sb-link {{ request()->routeIs('admin.review-ratings.*')?'active':'' }}"><i class="fa-solid fa-star"></i> Review Ratings</a>
     <a href="{{ route('admin.notifications') }}"
        class="sb-link {{ request()->routeIs('admin.notifications') ? 'active' : '' }}">
       <i class="fa-solid fa-bell"></i> Notifications

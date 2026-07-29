@@ -5,13 +5,10 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
 {
-    // Mirrors the exact same field combo and business rules as the web
-    // AuthController::login() — a student/faculty account is identified by
-    // (id_number + campus + user_type) together, not id_number alone, since
-    // the same ID number pattern can theoretically repeat across campuses.
     public function login(Request $request) {
         $request->validate([
             'campus'    => 'required|string',
@@ -29,7 +26,6 @@ class AuthController extends Controller
             return response()->json(['message' => 'Invalid credentials. Please try again.'], 401);
         }
 
-        // Blocked statuses — cannot log in at all, same as web
         if ($user->status === 'archived') {
             return response()->json(['message' => 'This account has been archived and cannot be accessed. Please contact the IT Center.'], 403);
         }
@@ -37,9 +33,6 @@ class AuthController extends Controller
             return response()->json(['message' => 'Your account registration was rejected. Please contact the IT Center.'], 403);
         }
 
-        // pending / deactivated are allowed to log in (app should show a
-        // restricted/notice screen client-side based on `status`, same as
-        // the web dashboard does) — everything else proceeds normally.
         $token = $user->createToken('android-app')->plainTextToken;
 
         return response()->json([
@@ -53,7 +46,10 @@ class AuthController extends Controller
         $userTypes = ['student', 'faculty_staff'];
 
         $request->validate([
-            'id_number'       => 'required|string|size:8|unique:users',
+            'id_number'       => [
+                'required', 'string', 'size:8',
+                Rule::unique('users')->where(fn ($q) => $q->where('campus', $request->campus)),
+            ],
             'first_name'      => 'required|string|max:100',
             'last_name'       => 'required|string|max:100',
             'email'           => 'required|email|unique:users',
@@ -92,9 +88,6 @@ class AuthController extends Controller
         ], 201);
     }
 
-    // Revokes only the token used for this request — logging out on the
-    // phone doesn't affect a session on the web or a token issued to
-    // another device.
     public function logout(Request $request) {
         $request->user()->currentAccessToken()->delete();
         return response()->json(['message' => 'Logged out.']);

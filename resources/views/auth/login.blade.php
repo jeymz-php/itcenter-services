@@ -29,6 +29,47 @@
         <div><div class="feat-title">Computer Lab</div><div class="feat-sub">Research &amp; computer reservation</div></div>
       </div>
     </div>
+
+    @if($publicRatings->count())
+    <div class="testimonial-carousel" style="margin-top:18px">
+      <div style="font-size:.66rem;font-weight:700;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">
+        <i class="fa-solid fa-star" style="color:#ffc94d"></i> What Our Users Say
+      </div>
+      <div style="position:relative;min-height:112px">
+        @foreach($publicRatings as $i => $rating)
+        <div class="testimonial-card" data-idx="{{ $i }}" style="display:{{ $i===0?'block':'none' }};background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:12px 14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:6px">
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:.78rem;font-weight:800;color:#fff">
+                {{ $rating->display_first_name }}{{ $rating->display_last_name ? ' '.$rating->display_last_name : '' }}
+              </span>
+              <span style="font-size:.6rem;font-weight:700;padding:1px 7px;border-radius:8px;background:rgba(255,255,255,.15);color:rgba(255,255,255,.8)">
+                {{ $rating->is_anonymous ? 'Anonymous' : 'Public' }}
+              </span>
+            </div>
+            <div style="color:#ffc94d;font-size:.7rem">
+              @for($s=1;$s<=5;$s++)<i class="fa-{{ $s<=$rating->stars?'solid':'regular' }} fa-star"></i>@endfor
+            </div>
+          </div>
+          <div style="font-size:.66rem;color:rgba(255,255,255,.6);margin-bottom:6px">
+            ID: {{ $rating->display_id_number }} &middot; {{ $rating->display_campus }}
+          </div>
+          <div style="font-size:.76rem;color:rgba(255,255,255,.9);line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">
+            "{{ $rating->comment }}"
+          </div>
+        </div>
+        @endforeach
+      </div>
+      @if($publicRatings->count() > 1)
+      <div style="display:flex;gap:5px;justify-content:center;margin-top:10px">
+        @foreach($publicRatings as $i => $rating)
+        <span class="testimonial-dot" data-idx="{{ $i }}" style="width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,{{ $i===0?'.9':'.3' }});cursor:pointer;transition:background .2s"></span>
+        @endforeach
+      </div>
+      @endif
+    </div>
+    @endif
+
     <div class="stats-row">
       <div class="stat"><div class="sv">24/7</div><div class="sl">Online Access</div></div>
       <div class="stat"><div class="sv">Fast</div><div class="sl">Processing</div></div>
@@ -189,5 +230,34 @@ document.getElementById('logo-trigger').addEventListener('click',()=>{
   if(_c>=5){window.location='{{ route("admin.login") }}';_c=0;}
   else _t=setTimeout(()=>_c=0,2000);
 });
+
+// Testimonial carousel — auto-advances every 5s, dots allow manual jump.
+const testimonialCards = document.querySelectorAll('.testimonial-card');
+const testimonialDots  = document.querySelectorAll('.testimonial-dot');
+let testimonialIdx = 0;
+let testimonialTimer;
+
+function showTestimonial(idx) {
+  testimonialCards.forEach(c => c.style.display = c.dataset.idx == idx ? 'block' : 'none');
+  testimonialDots.forEach(d => d.style.background = d.dataset.idx == idx ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.3)');
+  testimonialIdx = idx;
+}
+
+function startTestimonialAutoplay() {
+  clearInterval(testimonialTimer);
+  if (testimonialCards.length <= 1) return;
+  testimonialTimer = setInterval(() => {
+    showTestimonial((testimonialIdx + 1) % testimonialCards.length);
+  }, 5000);
+}
+
+testimonialDots.forEach(dot => {
+  dot.addEventListener('click', () => {
+    showTestimonial(parseInt(dot.dataset.idx, 10));
+    startTestimonialAutoplay();
+  });
+});
+
+if (testimonialCards.length) startTestimonialAutoplay();
 </script>
 @endpush

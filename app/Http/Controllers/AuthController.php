@@ -6,10 +6,20 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
 {
-    public function showLogin()  { return view('auth.login'); }
+    public function showLogin()  {
+        $publicRatings = \App\Models\Rating::with(['user', 'serviceRequest'])
+            ->whereNotNull('comment')
+            ->where('comment', '!=', '')
+            ->inRandomOrder()
+            ->limit(5)
+            ->get();
+
+        return view('auth.login', compact('publicRatings'));
+    }
     public function showRegister(){ return view('auth.register'); }
 
     public function login(Request $request) {
@@ -29,16 +39,12 @@ class AuthController extends Controller
             return back()->withErrors(['login' => 'Invalid credentials. Please try again.'])->withInput();
         }
 
-        // Blocked statuses — cannot log in at all
         if ($user->status === 'archived') {
             return back()->withErrors(['login' => 'This account has been archived and cannot be accessed. Please contact the IT Center.'])->withInput();
         }
         if ($user->status === 'rejected') {
             return back()->withErrors(['login' => 'Your account registration was rejected. Please contact the IT Center.'])->withInput();
         }
-
-        // These statuses CAN log in but see restricted dashboard
-        // pending, deactivated → allowed to login, shown notice on dashboard
 
         \Illuminate\Support\Facades\Auth::login($user);
         return redirect()->route('dashboard');
@@ -49,7 +55,10 @@ class AuthController extends Controller
         $userTypes  = ['student','faculty_staff'];
 
         $request->validate([
-            'id_number'        => 'required|string|size:8|unique:users',
+            'id_number'        => [
+                'required', 'string', 'size:8',
+                Rule::unique('users')->where(fn ($q) => $q->where('campus', $request->campus)),
+            ],
             'first_name'       => 'required|string|max:100',
             'last_name'        => 'required|string|max:100',
             'email'            => 'required|email|unique:users',
@@ -94,6 +103,13 @@ class AuthController extends Controller
     public function dashboard() {
         $user = Auth::user();
         if (!$user) return redirect()->route('login');
-        return view('dashboard', compact('user'));
+
+        $pendingRating = \App\Models\ServiceRequest::where('user_id', $user->id)
+            ->where('status', 'completed')
+            ->whereDoesntHave('rating')
+            ->latest()
+            ->first();
+
+        return view('dashboard', compact('user', 'pendingRating'));
     }
 }
