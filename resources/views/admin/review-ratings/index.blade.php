@@ -76,6 +76,9 @@
                 <span style="font-size:.86rem;font-weight:800;color:var(--gray800)">
                   {{ $r->display_first_name }}{{ $r->display_last_name ? ' '.$r->display_last_name : '' }}
                 </span>
+                @if($r->guest_request_id)
+                <span class="tag" style="background:#fff8e1;color:#b86a00"><i class="fa-solid fa-user-tag"></i> Guest</span>
+                @endif
                 @if($r->is_anonymous)
                 <span class="tag" style="background:var(--gray100);color:var(--gray600)"><i class="fa-solid fa-user-secret"></i> Anonymous</span>
                 @else
@@ -84,7 +87,7 @@
               </div>
               <div style="font-size:.7rem;color:var(--gray400);margin-top:2px">
                 ID: {{ $r->display_id_number }} &middot; {{ $r->display_campus }} &middot;
-                {{ ucfirst($r->serviceRequest->service_type) }} ({{ $r->serviceRequest->request_number }})
+                {{ ucfirst($r->service_type_value) }} ({{ $r->request_number }})
               </div>
             </div>
             <div style="text-align:right">

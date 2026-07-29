@@ -205,4 +205,30 @@ class GuestRequestController extends Controller
             'started_at'        => $session->started_at?->format('g:i A'),
         ]);
     }
+
+    public function storeRating(Request $request) {
+        $request->validate([
+            'guest_request_id' => 'required|exists:guest_requests,id',
+            'visibility'        => 'required|in:public,anonymous',
+            'stars'             => 'required|integer|min:1|max:5',
+            'comment'           => 'nullable|string|max:1000',
+            'suggestions'       => 'nullable|string|max:1000',
+        ]);
+
+        $guestRequest = \App\Models\GuestRequest::findOrFail($request->guest_request_id);
+
+        if (\App\Models\Rating::where('guest_request_id', $guestRequest->id)->exists()) {
+            return back()->withErrors(['stars' => 'This request has already been rated.']);
+        }
+
+        \App\Models\Rating::create([
+            'guest_request_id' => $guestRequest->id,
+            'is_anonymous'     => $request->visibility === 'anonymous',
+            'stars'            => $request->stars,
+            'comment'          => $request->comment,
+            'suggestions'      => $request->suggestions,
+        ]);
+
+        return back()->with('success', 'Thank you for your feedback!');
+    }
 }

@@ -158,7 +158,7 @@
     </div>
 
     <div class="cpr">
-      &copy; {{ date('Y') }} IT Services System. All rights reserved.<br>
+      &copy; {{ date('Y') }} IT Services System. All rights reserved. &nbsp;·&nbsp; v{{ \App\Models\Setting::get('system_version', '1.0.0') }}<br>
       <i class="fa-solid fa-phone" style="font-size:.6rem"></i> (02) 1234-5678 &nbsp;
       <i class="fa-solid fa-envelope" style="font-size:.6rem"></i> support@itservices.ph
     </div>

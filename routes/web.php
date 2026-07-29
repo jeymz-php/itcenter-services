@@ -131,6 +131,7 @@ Route::prefix('messages')->name('messages.')->group(function () {
         Route::put('/{admin}',         [AdminManagementController::class, 'update'])->name('update');
         Route::delete('/{admin}',      [AdminManagementController::class, 'destroy'])->name('destroy');
         Route::post('/{admin}/toggle', [AdminManagementController::class, 'toggleStatus'])->name('toggle');
+        Route::post('/{admin}/transfer-student', [AdminManagementController::class, 'transferToStudent'])->name('transfer-student');
     });
 
     // ── SYSTEM SETTINGS ──
@@ -204,5 +205,6 @@ Route::post('/public-request',        [GuestRequestController::class, 'store'])-
 Route::get('/public-request/usage',   [GuestRequestController::class, 'checkUsage'])->name('public.request.usage');
 Route::post('/public-request/detect-pages', [GuestRequestController::class, 'detectPages'])->name('public.request.detect-pages');
 Route::get('/public-request/success', [GuestRequestController::class, 'success'])->name('public.request.success');
+Route::post('/public-request/ratings', [GuestRequestController::class, 'storeRating'])->name('public.request.ratings');
 Route::get('/track',                  [GuestRequestController::class, 'track'])->name('public.track');
 Route::get('/track/session-status/{guestRequest}', [GuestRequestController::class, 'publicSessionStatus'])->name('public.session-status');

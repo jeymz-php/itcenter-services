@@ -73,4 +73,54 @@ class AdminManagementController extends Controller
         $admin->update(['status' => $newStatus]);
         return back()->with('success', "Admin account {$newStatus}.");
     }
+
+    public function transferToStudent(Request $request, Admin $admin) {
+        $this->superAdminGuard();
+
+        if ($admin->id === session('admin')->id) {
+            return back()->withErrors(['error' => 'You cannot transfer your own account.']);
+        }
+
+        $campuses = array_keys(config('campuses'));
+
+        $request->validate([
+            'first_name' => 'required|string|max:100',
+            'last_name'  => 'required|string|max:100',
+            'id_number'  => [
+                'required', 'string', 'size:8',
+                \Illuminate\Validation\Rule::unique('users')->where(fn ($q) => $q->where('campus', $admin->campus)),
+            ],
+            'user_type'  => 'required|in:student,faculty_staff',
+        ]);
+
+        if (\App\Models\User::where('email', $admin->email)->exists()) {
+            return back()->withErrors(['error' => "{$admin->email} is already used by an existing student/faculty account."]);
+        }
+
+        $tempPassword = \Illuminate\Support\Str::random(12);
+
+        $user = \App\Models\User::create([
+            'id_number'  => $request->id_number,
+            'first_name' => $request->first_name,
+            'last_name'  => $request->last_name,
+            'email'      => $admin->email,
+            'campus'     => $admin->campus,
+            'user_type'  => $request->user_type,
+            'password'   => Hash::make($tempPassword),
+            'status'     => 'active',
+        ]);
+
+        $admin->update(['status' => 'inactive']);
+
+        AdminNotification::notify(
+            'admin_demoted', 'Admin Transferred to Student Role',
+            "{$admin->admin_id} ({$admin->email}) was transferred to a " . ($request->user_type === 'faculty_staff' ? 'Faculty/Staff' : 'Student') . " account by " . session('admin')->admin_id . ".",
+            $user, route('admin.users.index'), 'fa-user-graduate'
+        );
+
+        return back()->with('success',
+            "{$admin->admin_id} transferred to " . ($request->user_type === 'faculty_staff' ? 'Faculty/Staff' : 'Student') .
+            " role — ID Number: {$request->id_number}, Temporary Password: {$tempPassword} (share this securely — it will not be shown again). Their admin account has been deactivated."
+        );
+    }
 }

@@ -473,6 +473,29 @@ tr:hover td{background:var(--g50)}
 </script>
 @endauth
 
+<script>
+if (typeof window.openModal !== 'function') {
+  window.openModal = function(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('open');
+  };
+}
+if (typeof window.closeModal !== 'function') {
+  window.closeModal = function(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('open');
+  };
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.modal-bg').forEach(m => {
+    m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+  });
+});
+</script>
+
+@stack('scripts')
+</body>
+
 @stack('scripts')
 </body>
 </html>

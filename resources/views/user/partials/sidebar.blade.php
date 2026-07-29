@@ -7,7 +7,7 @@
     <img src="{{ asset('images/UCC_Logo.png') }}" alt="UCC">
     <div>
       <div class="sbn">IT Center Services</div>
-      <div class="sbv">v{{ \App\Models\Setting::get('system_version', '1.0.0') }}</div>
+      <div class="sbv" onclick="openModal('versionModal')" style="cursor:pointer" title="View what's new in this version">v{{ \App\Models\Setting::get('system_version', '1.0.0') }}</div>
     </div>
   </div>
 

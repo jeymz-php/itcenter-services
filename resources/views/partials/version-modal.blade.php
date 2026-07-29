@@ -22,27 +22,12 @@
 </div>
 <script>
 (function(){
-  const CURRENT_VERSION = {!! json_encode($__sysVersion) !!};
-  const COOKIE_NAME = 'itc_version_seen';
-
-  function getCookie(name){
-    const v = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
-    return v ? decodeURIComponent(v[2]) : null;
-  }
-  function setCookie(name, value){
-    const d = new Date(); d.setFullYear(d.getFullYear() + 1);
-    document.cookie = name + '=' + encodeURIComponent(value) + ';expires=' + d.toUTCString() + ';path=/';
-  }
-
+  // Shows on every page load now — no more once-per-version cookie gate.
   window.closeVersionModal = function(){
     const m = document.getElementById('versionModal');
     if (m) m.classList.remove('open');
-    setCookie(COOKIE_NAME, CURRENT_VERSION);
   };
-
-  if (getCookie(COOKIE_NAME) !== CURRENT_VERSION) {
-    const m = document.getElementById('versionModal');
-    if (m) m.classList.add('open');
-  }
+  const m = document.getElementById('versionModal');
+  if (m) m.classList.add('open');
 })();
 </script>

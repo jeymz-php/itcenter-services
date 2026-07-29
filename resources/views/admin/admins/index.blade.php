@@ -87,6 +87,58 @@
   </div>
 </div>
 
+{{-- TRANSFER TO STUDENT ROLE MODAL --}}
+<div class="modal-bg" id="transferStudentModal">
+  <div class="modal-box">
+    <div class="modal-hd">
+      <h3><i class="fa-solid fa-user-graduate" style="color:#6a1b9a;margin-right:6px"></i>Transfer to Student Role</h3>
+      <button class="modal-close" onclick="closeModal('transferStudentModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="transferStudentForm" method="POST">
+      @csrf
+      <div class="modal-body">
+        <div class="abox warn" style="margin-bottom:16px">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <div>
+            Transferring <strong id="transfer-student-admin-id">this admin</strong> will create a new student/faculty
+            account using their same email, then deactivate their admin access. This cannot be easily undone.
+          </div>
+        </div>
+
+        <div class="fg">
+          <div class="flabel"><i class="fa-solid fa-id-card"></i> ID Number</div>
+          <input type="text" name="id_number" class="fc" placeholder="Enter 8-digit ID number" maxlength="8" required>
+        </div>
+
+        <div class="g2">
+          <div class="fg">
+            <div class="flabel"><i class="fa-solid fa-user"></i> First Name</div>
+            <input type="text" name="first_name" class="fc" placeholder="First name" required>
+          </div>
+          <div class="fg">
+            <div class="flabel"><i class="fa-solid fa-user"></i> Last Name</div>
+            <input type="text" name="last_name" class="fc" placeholder="Last name" required>
+          </div>
+        </div>
+
+        <div class="fg">
+          <div class="flabel"><i class="fa-solid fa-user-tag"></i> User Type</div>
+          <div class="sw">
+            <select name="user_type" class="fs" required>
+              <option value="student">Student</option>
+              <option value="faculty_staff">Faculty / Staff</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="modal-btn secondary" onclick="closeModal('transferStudentModal')">Cancel</button>
+        <button type="submit" class="modal-btn primary" style="background:#6a1b9a"><i class="fa-solid fa-user-graduate"></i> Confirm Transfer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div class="dash-wrap">
   @include('admin.partials.sidebar')
   <main class="main">
@@ -139,6 +191,10 @@
                   <form action="{{ route('admin.admins.destroy', $a) }}" method="POST" style="display:inline" onsubmit="return confirm('Delete admin {{ $a->admin_id }}?')">@csrf @method('DELETE')
                     <button type="submit" class="act-btn act-del" title="Delete"><i class="fa-solid fa-trash"></i></button>
                   </form>
+                  <button type="button" class="act-btn act-appr" style="background:#6a1b9a" title="Transfer to Student Role"
+                    onclick="openTransferStudent('{{ route('admin.admins.transfer-student', $a) }}','{{ $a->admin_id }}')">
+                    <i class="fa-solid fa-user-graduate"></i>
+                  </button>
                   @else
                   <span style="font-size:.7rem;color:var(--gray400)">Current</span>
                   @endif
@@ -172,6 +228,11 @@ function openEditAdmin(url, adminId, email, campus, role){
   document.getElementById('ea-campus').value = campus;
   document.getElementById('ea-role').value = role;
   openModal('editAdminModal');
+}
+function openTransferStudent(url, adminId){
+  document.getElementById('transferStudentForm').setAttribute('action', url);
+  document.getElementById('transfer-student-admin-id').textContent = adminId;
+  openModal('transferStudentModal');
 }
 </script>
 @endpush
