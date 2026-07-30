@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ServiceRequest;
+use App\Models\GuestRequest;
 use App\Models\User;
 use App\Models\ComputerSession;
 use Illuminate\Http\Request;
@@ -67,7 +68,71 @@ class ReportController extends Controller
                                 ->sum('duration_minutes') / 60, 1),
         ];
 
-        return view('admin.reports.index', compact('byService','byDay','byDayPaperUsage','byCampus','totals','from','to','campus'));
+        // ── USAGE BY CAMPUS FOR A GIVEN DAY ── defaults to today if no
+        // date was picked, but can be pointed at any past day via the
+        // usage_date filter — independent of the $from/$to range above,
+        // since this section is always a single-day snapshot, not a range.
+        // Combines logged-in students/faculty AND guests, since both
+        // consume real paper and PC time and leaving guests out would
+        // understate what a campus actually used that day.
+        $usageDate = $request->filled('usage_date')
+            ? \Carbon\Carbon::parse($request->usage_date)->startOfDay()
+            : now()->startOfDay();
+        $usageDateEnd = $usageDate->copy()->endOfDay();
+
+        $todayFromUsers = ServiceRequest::selectRaw("
+                users.campus as campus,
+                SUM(CASE WHEN service_requests.service_type='printing' THEN COALESCE(service_requests.detected_pages,1)*service_requests.copies ELSE 0 END) as printing_sheets,
+                SUM(CASE WHEN service_requests.service_type='photocopy' THEN service_requests.copies ELSE 0 END) as photocopy_sheets,
+                SUM(CASE WHEN service_requests.service_type='research' THEN service_requests.duration_minutes ELSE 0 END) as research_minutes
+            ")
+            ->join('users','users.id','=','service_requests.user_id')
+            ->whereIn('service_requests.service_type', ['printing','photocopy','research'])
+            ->whereNotIn('service_requests.status', ['rejected','cancelled'])
+            ->whereBetween('service_requests.created_at', [$usageDate, $usageDateEnd])
+            ->when($campus, fn($q) => $q->where('users.campus', $campus))
+            ->groupBy('users.campus')
+            ->get()->keyBy('campus');
+
+        $todayFromGuests = GuestRequest::selectRaw("
+                campus,
+                SUM(CASE WHEN service_type='printing' THEN COALESCE(detected_pages,1)*copies ELSE 0 END) as printing_sheets,
+                SUM(CASE WHEN service_type='photocopy' THEN copies ELSE 0 END) as photocopy_sheets,
+                SUM(CASE WHEN service_type='research' THEN duration_minutes ELSE 0 END) as research_minutes
+            ")
+            ->whereIn('service_type', ['printing','photocopy','research'])
+            ->whereNotIn('status', ['rejected','cancelled'])
+            ->whereBetween('created_at', [$usageDate, $usageDateEnd])
+            ->when($campus, fn($q) => $q->where('campus', $campus))
+            ->groupBy('campus')
+            ->get()->keyBy('campus');
+
+        $campusKeys = $admin->role === 'super_admin'
+            ? ($campus ? [$campus] : array_keys(config('campuses')))
+            : [$admin->campus];
+
+        $todayByCampus = collect($campusKeys)->map(function ($c) use ($todayFromUsers, $todayFromGuests) {
+            $u = $todayFromUsers->get($c);
+            $g = $todayFromGuests->get($c);
+            $printing  = ($u->printing_sheets ?? 0) + ($g->printing_sheets ?? 0);
+            $photocopy = ($u->photocopy_sheets ?? 0) + ($g->photocopy_sheets ?? 0);
+            $minutes   = ($u->research_minutes ?? 0) + ($g->research_minutes ?? 0);
+            return (object) [
+                'campus'           => $c,
+                'campus_label'     => config('campuses.' . $c, $c),
+                'printing_sheets'  => (int) $printing,
+                'photocopy_sheets' => (int) $photocopy,
+                'research_minutes' => (int) $minutes,
+                'research_hours'   => floor($minutes / 60),
+                'research_mins_rem'=> $minutes % 60,
+            ];
+        });
+
+        $usageDateString = $usageDate->toDateString();
+
+        return view('admin.reports.index', compact(
+            'byService','byDay','byDayPaperUsage','byCampus','totals','from','to','campus','todayByCampus','usageDateString'
+        ));
     }
 
     public function downloadPdf(Request $request) {
