@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\InventoryItem;
+use App\Models\InventoryStockLog;
 use Illuminate\Http\Request;
 
 class InventoryController extends Controller
@@ -80,8 +81,66 @@ class InventoryController extends Controller
         $admin = $this->guard();
         $this->assertInScope($admin, $inventoryItem);
         $request->validate(['qty' => 'required|integer|min:1']);
+
         $inventoryItem->increment('stock', $request->qty);
+
+        InventoryStockLog::create([
+            'inventory_item_id' => $inventoryItem->id,
+            'admin_id'          => $admin->id,
+            'type'              => 'add',
+            'quantity'          => $request->qty,
+        ]);
+
         return back()->with('success', "Added {$request->qty} to {$inventoryItem->name}.");
+    }
+
+    // Reduces stock — for correcting an accidental over-addition. Requires
+    // a reason (unlike Add Stock) since removing stock is the kind of
+    // action worth being able to explain later, and can never take stock
+    // below zero regardless of what quantity is requested.
+    public function reduceStock(Request $request, InventoryItem $inventoryItem) {
+        $admin = $this->guard();
+        $this->assertInScope($admin, $inventoryItem);
+        $request->validate([
+            'qty'    => 'required|integer|min:1',
+            'reason' => 'required|string|max:255',
+        ]);
+
+        if ($request->qty > $inventoryItem->stock) {
+            return back()->withErrors([
+                'error' => "Cannot reduce by {$request->qty} — {$inventoryItem->name} only has {$inventoryItem->stock} in stock."
+            ]);
+        }
+
+        $inventoryItem->decrement('stock', $request->qty);
+
+        InventoryStockLog::create([
+            'inventory_item_id' => $inventoryItem->id,
+            'admin_id'          => $admin->id,
+            'type'              => 'reduce',
+            'quantity'          => $request->qty,
+            'note'              => $request->reason,
+        ]);
+
+        return back()->with('success', "Reduced {$inventoryItem->name} by {$request->qty}.");
+    }
+
+    // JSON feed for the "View" logs modal — kept lightweight (id, admin
+    // name, type, qty, note, date) rather than a full page navigation,
+    // since this is just a quick audit-trail lookup per item.
+    public function logs(InventoryItem $inventoryItem) {
+        $admin = $this->guard();
+        $this->assertInScope($admin, $inventoryItem);
+
+        $logs = $inventoryItem->stockLogs()->with('admin')->take(50)->get()->map(fn ($log) => [
+            'type'       => $log->type,
+            'quantity'   => $log->quantity,
+            'note'       => $log->note,
+            'admin_name' => $log->admin->admin_id ?? 'Unknown (removed)',
+            'created_at' => $log->created_at->format('M d, Y g:i A'),
+        ]);
+
+        return response()->json(['item_name' => $inventoryItem->name, 'logs' => $logs]);
     }
 
     public function destroy(InventoryItem $inventoryItem) {

@@ -50,6 +50,63 @@
   </div>
 </div>
 
+<!-- REDUCE STOCK MODAL -->
+<div class="modal-bg" id="reduceStockModal">
+  <div class="modal-box">
+    <div class="modal-hd">
+      <h3><i class="fa-solid fa-minus" style="color:var(--red);margin-right:6px"></i>Reduce Stock</h3>
+      <button class="modal-close" onclick="closeModal('reduceStockModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="reduceStockForm" method="POST">
+      @csrf
+      <div class="modal-body">
+        <div class="abox warn" style="margin-bottom:14px">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <div>Use this to correct a mistake — e.g. stock was added by accident or in the wrong amount. This cannot go below zero.</div>
+        </div>
+        <div class="fg">
+          <div class="flabel">Item</div>
+          <input type="text" id="reduce-item-name" class="fc" disabled style="background:var(--gray100)">
+        </div>
+        <div class="fg">
+          <div class="flabel">Quantity to Reduce</div>
+          <input type="number" name="qty" class="fc" min="1" value="1" required>
+        </div>
+        <div class="fg">
+          <div class="flabel">Reason</div>
+          <textarea name="reason" class="fc" rows="2" placeholder="e.g. Accidentally added 200 instead of 20" required style="resize:vertical"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="modal-btn secondary" onclick="closeModal('reduceStockModal')">Cancel</button>
+        <button type="submit" class="modal-btn danger"><i class="fa-solid fa-minus"></i> Reduce Stock</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- STOCK LOGS MODAL -->
+<div class="modal-bg" id="stockLogsModal">
+  <div class="modal-box" style="max-width:560px">
+    <div class="modal-hd">
+      <h3><i class="fa-solid fa-clock-rotate-left" style="color:var(--g600);margin-right:6px"></i>Stock History — <span id="logs-item-name"></span></h3>
+      <button class="modal-close" onclick="closeModal('stockLogsModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body" style="max-height:60vh;overflow-y:auto">
+      <div id="logs-loading" style="text-align:center;padding:20px;color:var(--gray400)">
+        <i class="fa-solid fa-spinner fa-spin"></i> Loading...
+      </div>
+      <div id="logs-empty" style="display:none;text-align:center;padding:20px;color:var(--gray400)">
+        No stock changes recorded for this item yet.
+      </div>
+      <div id="logs-list" style="display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="modal-btn secondary" onclick="closeModal('stockLogsModal')">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="dash-wrap">
   @include('admin.partials.sidebar')
   <main class="main">
@@ -57,6 +114,7 @@
     <div class="content">
 
       @if(session('success'))<div class="abox ok" style="margin-bottom:14px"><i class="fa-solid fa-circle-check"></i> {{ session('success') }}</div>@endif
+      @if($errors->has('error'))<div class="abox err" style="margin-bottom:14px"><i class="fa-solid fa-triangle-exclamation"></i> {{ $errors->first('error') }}</div>@endif
 
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
         @if(session('admin')->role === 'super_admin')
@@ -107,13 +165,23 @@
                   </td>
                   <td><span class="tag {{ $item->is_active?'tag-active':'tag-deact' }}">{{ $item->is_active?'ACTIVE':'INACTIVE' }}</span></td>
                   <td>
-                    <div style="display:flex;gap:4px">
+                    <div style="display:flex;gap:4px;flex-wrap:wrap">
+                      {{-- View logs --}}
+                      <button type="button" class="act-btn act-view" title="View Stock Logs"
+                        onclick="openLogsModal('{{ route('admin.inventory.logs', $item) }}')">
+                        <i class="fa-solid fa-eye"></i>
+                      </button>
                       {{-- Add stock --}}
                       <form action="{{ route('admin.inventory.stock',$item) }}" method="POST" style="display:flex;gap:4px">
                         @csrf
                         <input type="number" name="qty" class="fc" min="1" value="50" style="width:60px;padding:5px 7px;font-size:.72rem">
                         <button type="submit" class="act-btn act-appr" title="Add Stock" style="width:auto;padding:0 8px;font-size:.68rem">+Add</button>
                       </form>
+                      {{-- Reduce stock --}}
+                      <button type="button" class="act-btn act-del" title="Reduce Stock"
+                        onclick="openReduceStock('{{ route('admin.inventory.reduce-stock', $item) }}','{{ addslashes($item->name) }}')">
+                        <i class="fa-solid fa-minus"></i>
+                      </button>
                       {{-- Toggle --}}
                       <form action="{{ route('admin.inventory.update',$item) }}" method="POST" style="display:inline">
                         @csrf @method('PUT')
@@ -188,5 +256,53 @@
 function openModal(id){document.getElementById(id).classList.add('open')}
 function closeModal(id){document.getElementById(id).classList.remove('open')}
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open')}));
+
+function openReduceStock(url, itemName) {
+  document.getElementById('reduceStockForm').setAttribute('action', url);
+  document.getElementById('reduce-item-name').value = itemName;
+  openModal('reduceStockModal');
+}
+
+function openLogsModal(url) {
+  openModal('stockLogsModal');
+  const loading = document.getElementById('logs-loading');
+  const empty   = document.getElementById('logs-empty');
+  const list    = document.getElementById('logs-list');
+  loading.style.display = 'block';
+  empty.style.display = 'none';
+  list.innerHTML = '';
+
+  fetch(url)
+    .then(r => r.json())
+    .then(data => {
+      loading.style.display = 'none';
+      document.getElementById('logs-item-name').textContent = data.item_name;
+      if (!data.logs.length) {
+        empty.style.display = 'block';
+        return;
+      }
+      data.logs.forEach(log => {
+        const isAdd = log.type === 'add';
+        const row = document.createElement('div');
+        row.style.cssText = 'padding:10px 12px;background:var(--gray100);border-radius:8px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px';
+        row.innerHTML = `
+          <div>
+            <div style="font-size:.78rem;font-weight:700;color:${isAdd ? 'var(--g700)' : 'var(--red)'}">
+              <i class="fa-solid fa-${isAdd ? 'plus' : 'minus'}"></i> ${isAdd ? 'Added' : 'Reduced'} ${log.quantity}
+            </div>
+            <div style="font-size:.7rem;color:var(--gray600);margin-top:2px">By ${log.admin_name}</div>
+            ${log.note ? `<div style="font-size:.72rem;color:var(--gray600);margin-top:4px;font-style:italic">"${log.note}"</div>` : ''}
+          </div>
+          <div style="font-size:.65rem;color:var(--gray400);white-space:nowrap">${log.created_at}</div>
+        `;
+        list.appendChild(row);
+      });
+    })
+    .catch(() => {
+      loading.style.display = 'none';
+      empty.textContent = 'Could not load stock history.';
+      empty.style.display = 'block';
+    });
+}
 </script>
 @endpush

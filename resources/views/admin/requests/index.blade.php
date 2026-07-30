@@ -40,9 +40,9 @@
     ])
     <div class="content">
 
-      @if(session('success'))
-        <div class="abox ok" style="margin-bottom:14px">
-          <i class="fa-solid fa-circle-check"></i> {{ session('success') }}
+      @if($errors->has('error'))
+        <div class="abox err" style="margin-bottom:14px">
+          <i class="fa-solid fa-triangle-exclamation"></i> {{ $errors->first('error') }}
         </div>
       @endif
 
@@ -206,6 +206,17 @@
                       @csrf
                       <button type="submit" class="act-btn act-appr" title="Mark Completed">
                         <i class="fa-solid fa-check-double"></i>
+                      </button>
+                    </form>
+                  @endif
+
+                  {{-- Delete — only rejected/completed requests can be removed, matching the controller's own guard --}}
+                  @if(in_array($r->status, ['rejected', 'completed']))
+                    <form action="{{ route('admin.service-requests.destroy', $r) }}" method="POST" style="display:inline"
+                      onsubmit="return confirm('Permanently delete request {{ $r->request_number }}? This cannot be undone.')">
+                      @csrf @method('DELETE')
+                      <button type="submit" class="act-btn act-del" title="Delete">
+                        <i class="fa-solid fa-trash"></i>
                       </button>
                     </form>
                   @endif

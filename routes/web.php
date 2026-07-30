@@ -155,6 +155,7 @@ Route::prefix('messages')->name('messages.')->group(function () {
         Route::post('/{serviceRequest}/assign-pc',       [AdminServiceRequestController::class, 'assignPC'])->name('assign-pc');
         Route::post('/{serviceRequest}/extend-session',  [AdminServiceRequestController::class, 'extendSession'])->name('extend-session');
         Route::post('/{serviceRequest}/end-session',     [AdminServiceRequestController::class, 'endSession'])->name('end-session');
+        Route::delete('/{serviceRequest}', [AdminServiceRequestController::class, 'destroy'])->name('destroy');
         Route::get('/{serviceRequest}/session-status',   [AdminServiceRequestController::class, 'sessionStatus'])->name('session-status');
         Route::get('/{serviceRequest}/report', [AdminServiceRequestController::class, 'downloadReport'])->name('report');
     });
@@ -175,6 +176,8 @@ Route::prefix('messages')->name('messages.')->group(function () {
         Route::post('/',                      [InventoryController::class, 'store'])->name('store');
         Route::put('/{inventoryItem}',        [InventoryController::class, 'update'])->name('update');
         Route::post('/{inventoryItem}/stock', [InventoryController::class, 'addStock'])->name('stock');
+        Route::post('/{inventoryItem}/reduce-stock', [InventoryController::class, 'reduceStock'])->name('reduce-stock');
+        Route::get('/{inventoryItem}/logs', [InventoryController::class, 'logs'])->name('logs');
         Route::delete('/{inventoryItem}',     [InventoryController::class, 'destroy'])->name('destroy');
     });
 

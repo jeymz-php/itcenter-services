@@ -42,4 +42,8 @@ class InventoryItem extends Model
                      ->orderBy('sort_order')
                      ->get();
     }
+
+    public function stockLogs() {
+        return $this->hasMany(InventoryStockLog::class)->latest();
+    }
 }

@@ -246,6 +246,29 @@ class ServiceRequestController extends Controller
         ]);
     }
 
+    public function destroy(Request $request, ServiceRequest $serviceRequest) {
+        $admin = $this->guard();
+        if ($admin->role !== 'super_admin' && $serviceRequest->user?->campus !== $admin->campus) {
+            abort(403, 'You can only manage requests from your own campus.');
+        }
+
+        if (!in_array($serviceRequest->status, ['rejected', 'completed'])) {
+            return back()->withErrors([
+                'error' => "Only rejected or completed requests can be deleted. This request is currently \"{$serviceRequest->status}\" — reject or complete it first."
+            ]);
+        }
+
+        // Clean up any uploaded file so it doesn't sit orphaned on disk.
+        if ($serviceRequest->file_path) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($serviceRequest->file_path);
+        }
+
+        $number = $serviceRequest->request_number;
+        $serviceRequest->delete();
+
+        return back()->with('success', "Request {$number} deleted.");
+    }
+
     private function reduceStock(ServiceRequest $sr): void
     {
         if (!in_array($sr->service_type, ['printing','photocopy'])) return;
