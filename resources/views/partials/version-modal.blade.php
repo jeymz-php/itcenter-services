@@ -22,12 +22,16 @@
 </div>
 <script>
 (function(){
-  // Shows on every page load now — no more once-per-version cookie gate.
   window.closeVersionModal = function(){
     const m = document.getElementById('versionModal');
     if (m) m.classList.remove('open');
   };
+  
+  const SESSION_KEY = 'itc_version_modal_shown_' + '{{ $__sysVersion }}';
   const m = document.getElementById('versionModal');
-  if (m) m.classList.add('open');
+  if (m && !sessionStorage.getItem(SESSION_KEY)) {
+    m.classList.add('open');
+    sessionStorage.setItem(SESSION_KEY, '1');
+  }
 })();
 </script>
