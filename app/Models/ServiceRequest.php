@@ -65,17 +65,26 @@ class ServiceRequest extends Model
         return (int) Setting::get('daily_research_minutes', self::DEFAULT_DAILY_RESEARCH_LIMIT);
     }
 
-    public static function printingPagesUsedToday(int $userId): int {
-        return (int) static::where('user_id', $userId)
+    public function printingSheetCount(): int {
+        return ((int) ($this->detected_pages ?: 1)) * (int) ($this->copies ?: 1);
+    }
+
+    public static function printingPagesUsedToday(int $userId, ?int $excludeRequestId = null): int {
+        $query = static::where('user_id', $userId)
             ->where('service_type', 'printing')
             ->whereNotIn('status', ['rejected', 'cancelled'])
-            ->where('created_at', '>=', now()->startOfDay())
-            ->get(['copies', 'detected_pages'])
+            ->where('created_at', '>=', now()->startOfDay());
+
+        if ($excludeRequestId !== null) {
+            $query->where('id', '!=', $excludeRequestId);
+        }
+
+        return (int) $query->get(['copies', 'detected_pages'])
             ->sum(fn ($r) => ((int) ($r->detected_pages ?: 1)) * (int) $r->copies);
     }
 
-    public static function printingPagesRemainingToday(int $userId): int {
-        return max(0, self::dailyPrintingLimit() - self::printingPagesUsedToday($userId));
+    public static function printingPagesRemainingToday(int $userId, ?int $excludeRequestId = null): int {
+        return max(0, self::dailyPrintingLimit() - self::printingPagesUsedToday($userId, $excludeRequestId));
     }
 
     public static function photocopyPagesUsedToday(int $userId): int {

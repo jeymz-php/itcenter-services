@@ -495,7 +495,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
 @stack('scripts')
 </body>
-
-@stack('scripts')
-</body>
 </html>

@@ -7,6 +7,7 @@ use App\Models\InventoryItem;
 use App\Models\AdminNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class ServiceRequestController extends Controller
@@ -24,12 +25,59 @@ class ServiceRequestController extends Controller
         return $pdf->stream("Receipt-{$r->request_number}.pdf");
     }
 
+
+    /**
+     * Display one of the authenticated user's service requests.
+     *
+     * AJAX requests receive only the modal body. A normal browser request
+     * receives a complete details page, which also gives the View Details
+     * link a usable fallback when JavaScript is unavailable.
+     */
+    public function show(Request $request, ServiceRequest $serviceRequest) {
+        if ($serviceRequest->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $r = $serviceRequest->load(['computer', 'computerSession', 'admin']);
+
+        if ($request->ajax() || $request->boolean('modal')) {
+            return view('user.requests._details', compact('r'));
+        }
+
+        return view('user.requests.show', compact('r'));
+    }
+
+    /**
+     * Open the uploaded printing file through an authenticated route instead
+     * of exposing the storage path directly from the My Requests page.
+     */
+    public function openFile(ServiceRequest $serviceRequest) {
+        if ($serviceRequest->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        if ($serviceRequest->service_type !== 'printing' || !$serviceRequest->file_path) {
+            abort(404);
+        }
+
+        $disk = Storage::disk('public');
+        if (!$disk->exists($serviceRequest->file_path)) {
+            abort(404, 'The uploaded file could not be found.');
+        }
+
+        return $disk->response(
+            $serviceRequest->file_path,
+            $serviceRequest->file_name ?: basename($serviceRequest->file_path)
+        );
+    }
+
     public function printing() {
+        $serviceRequest = null;
         $paperSizes = InventoryItem::paperSizes(Auth::user()->campus);
         $pageLimit      = ServiceRequest::dailyPrintingLimit();
         $pagesUsed      = ServiceRequest::printingPagesUsedToday(Auth::id());
         $pagesRemaining = ServiceRequest::printingPagesRemainingToday(Auth::id());
-        return view('user.requests.printing', compact('paperSizes','pageLimit','pagesUsed','pagesRemaining'));
+        return view('user.requests.printing', compact('serviceRequest','paperSizes','pageLimit','pagesUsed','pagesRemaining'));
     }
 
     public function storePrinting(Request $request) {
@@ -44,6 +92,7 @@ class ServiceRequestController extends Controller
             'purpose'    => 'required|string|max:500',
             'file'       => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240',
             'terms'      => 'accepted',
+            'submission_confirmed' => 'accepted',
         ]);
 
         $uploadedFile  = $request->file('file');
@@ -96,6 +145,137 @@ class ServiceRequestController extends Controller
         }
 
         return redirect()->route('dashboard')->with('success', $msg);
+    }
+
+    public function editPrinting(ServiceRequest $serviceRequest) {
+        if ($serviceRequest->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        if ($serviceRequest->service_type !== 'printing') {
+            abort(404);
+        }
+
+        if ($serviceRequest->status !== 'pending') {
+            return redirect()->route('requests.history')->withErrors([
+                'error' => 'Only pending printing requests can be edited. This request is already ' . $serviceRequest->status . '.',
+            ]);
+        }
+
+        $paperSizes = InventoryItem::paperSizes(Auth::user()->campus);
+        $pageLimit      = ServiceRequest::dailyPrintingLimit();
+        $pagesUsed      = ServiceRequest::printingPagesUsedToday(Auth::id(), $serviceRequest->id);
+        $pagesRemaining = ServiceRequest::printingPagesRemainingToday(Auth::id(), $serviceRequest->id);
+
+        return view('user.requests.printing', compact('serviceRequest','paperSizes','pageLimit','pagesUsed','pagesRemaining'));
+    }
+
+    public function updatePrinting(Request $request, ServiceRequest $serviceRequest) {
+        if ($serviceRequest->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        if ($serviceRequest->service_type !== 'printing') {
+            abort(404);
+        }
+
+        if ($serviceRequest->status !== 'pending') {
+            return redirect()->route('requests.history')->withErrors([
+                'error' => 'This printing request can no longer be edited because its status is ' . $serviceRequest->status . '.',
+            ]);
+        }
+
+        $request->validate([
+            'paper_size' => 'required|string',
+            'copies'     => 'required|integer|min:1|max:100',
+            'print_type' => 'required|in:black_white,colored',
+            'purpose'    => 'required|string|max:500',
+            'file'       => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240',
+            'terms'      => 'accepted',
+            'submission_confirmed' => 'accepted',
+        ]);
+
+        $uploadedFile  = $request->file('file');
+        $detectedPages = $uploadedFile
+            ? \App\Services\FilePageDetector::detect($uploadedFile)
+            : $serviceRequest->detected_pages;
+        $copies        = (int) $request->copies;
+        $totalSheets   = ((int) ($detectedPages ?: 1)) * $copies;
+
+        // Exclude the request being edited so its previous sheet count is not
+        // counted twice against the user's daily printing limit.
+        $pageLimit = ServiceRequest::dailyPrintingLimit();
+        $available = ServiceRequest::printingPagesRemainingToday(Auth::id(), $serviceRequest->id);
+
+        if ($totalSheets > $available) {
+            return back()->withErrors([
+                'error' => $available > 0
+                    ? "The updated request needs {$totalSheets} sheet(s), but only {$available} page(s) are available within your daily {$pageLimit}-page printing limit."
+                    : "You've reached your daily {$pageLimit}-page printing limit. It resets at 12:00 AM.",
+            ])->withInput();
+        }
+
+        $oldFilePath = $serviceRequest->file_path;
+        $newFilePath = null;
+
+        if ($uploadedFile) {
+            $newFilePath = $uploadedFile->store('service_files', 'public');
+        }
+
+        $updateData = [
+            'paper_size'     => $request->paper_size,
+            'copies'         => $copies,
+            'print_type'     => $request->print_type,
+            'purpose'        => $request->purpose,
+            'file_path'      => $uploadedFile ? $newFilePath : $serviceRequest->file_path,
+            'file_name'      => $uploadedFile ? $uploadedFile->getClientOriginalName() : $serviceRequest->file_name,
+            'detected_pages' => $detectedPages,
+        ];
+
+        try {
+            // Keep this as a conditional database update. If an administrator
+            // changes the request from pending while the user has the edit form
+            // open, the update affects zero rows and the request stays locked.
+            $updated = ServiceRequest::query()
+                ->whereKey($serviceRequest->id)
+                ->where('user_id', Auth::id())
+                ->where('service_type', 'printing')
+                ->where('status', 'pending')
+                ->update($updateData);
+        } catch (\Throwable $e) {
+            if ($newFilePath) {
+                Storage::disk('public')->delete($newFilePath);
+            }
+            throw $e;
+        }
+
+        if ($updated !== 1) {
+            if ($newFilePath) {
+                Storage::disk('public')->delete($newFilePath);
+            }
+
+            return redirect()->route('requests.history')->withErrors([
+                'error' => 'This printing request can no longer be edited because its status changed from pending.',
+            ]);
+        }
+
+        if ($uploadedFile && $oldFilePath && $oldFilePath !== $newFilePath) {
+            Storage::disk('public')->delete($oldFilePath);
+        }
+
+        $serviceRequest->refresh();
+
+        AdminNotification::notify(
+            'updated_print_request', 'Printing Request Updated',
+            Auth::user()->full_name." updated pending printing request ({$serviceRequest->request_number})."
+            .($uploadedFile ? " The uploaded file was replaced with {$serviceRequest->file_name}." : ''),
+            Auth::user(),
+            route('admin.service-requests.show', $serviceRequest),
+            'fa-pen-to-square'
+        );
+
+        return redirect()->route('requests.history')
+            ->with('success', "Printing request {$serviceRequest->request_number} updated successfully.");
     }
 
     public function photocopy() {

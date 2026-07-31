@@ -59,6 +59,7 @@ class GuestRequestController extends Controller
             ],
             'purpose'      => 'required|string|max:500',
             'terms'        => 'accepted',
+            'submission_confirmed' => 'exclude_unless:service_type,printing|accepted',
         ]);
 
         if ($request->service_type === 'printing') {
@@ -164,6 +165,19 @@ class GuestRequestController extends Controller
         ]);
 
         return redirect()->route('public.request.success', ['number' => $gr->request_number]);
+    }
+
+    public function detectPages(Request $request) {
+        $request->validate([
+            'file' => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240',
+        ]);
+
+        $pages = \App\Services\FilePageDetector::detect($request->file('file'));
+
+        return response()->json([
+            'pages'   => $pages,
+            'success' => $pages !== null,
+        ]);
     }
 
     public function success(Request $request) {

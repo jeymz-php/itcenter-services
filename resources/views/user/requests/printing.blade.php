@@ -1,7 +1,8 @@
 @extends('user.requests._layout')
-@section('title','Printing Request | IT Center')
-@section('page-title','Printing Service')
-@section('page-sub','Submit a document or photo printing request')
+@php($isEdit = isset($serviceRequest) && $serviceRequest)
+@section('title', $isEdit ? 'Edit Printing Request | IT Center' : 'Printing Request | IT Center')
+@section('page-title', $isEdit ? 'Edit Printing Request' : 'Printing Service')
+@section('page-sub', $isEdit ? 'Update your pending printing request before it is approved' : 'Submit a document or photo printing request')
 
 @section('request-content')
 
@@ -34,6 +35,34 @@
   </div>
 </div>
 
+<!-- SUBMISSION CONFIRMATION MODAL -->
+<div class="modal-bg" id="printingConfirmModal">
+  <div class="modal-box" style="max-width:600px">
+    <div class="modal-hd">
+      <h3>
+        <i class="fa-solid fa-circle-check" style="color:var(--blue);margin-right:7px"></i>
+        {{ $isEdit ? 'Confirm Printing Request Changes' : 'Confirm Printing Request' }}
+      </h3>
+      <button type="button" class="modal-close" onclick="closeModal('printingConfirmModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body" style="padding:18px 22px">
+      <div class="abox info" style="margin-bottom:14px">
+        <i class="fa-solid fa-circle-info"></i>
+        <div>Please review the uploaded file and printing details. Select <strong>Modify Details</strong> if anything is incorrect.</div>
+      </div>
+      <div id="printing-confirm-summary" class="confirm-grid"></div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="modal-btn secondary" onclick="closeModal('printingConfirmModal')">
+        <i class="fa-solid fa-pen-to-square"></i> Modify Details
+      </button>
+      <button type="button" class="modal-btn primary" id="confirm-printing-submit" onclick="confirmPrintingSubmission()">
+        <i class="fa-solid fa-paper-plane"></i> {{ $isEdit ? 'Save Changes' : 'Confirm & Submit' }}
+      </button>
+    </div>
+  </div>
+</div>
+
 <div style="max-width:680px;margin:0 auto">
   @if($errors->any())
     <div class="abox err" style="margin-bottom:16px">
@@ -54,14 +83,27 @@
       </div>
     </div>
 
-    <form action="{{ route('requests.printing.store') }}" method="POST" enctype="multipart/form-data" style="padding:20px">
+    @if($isEdit)
+    <div style="margin:18px 20px 0;background:#fff8e1;border-left:3px solid #f5a623;border-radius:8px;padding:10px 13px;font-size:.76rem;color:#7a5200;display:flex;gap:8px;align-items:flex-start">
+      <i class="fa-solid fa-lock-open" style="margin-top:2px"></i>
+      <div>This request is still <strong>Pending</strong>, so you may revise its file and details. Once approved or processed, editing will be locked.</div>
+    </div>
+    @endif
+
+    <form id="printingForm"
+      action="{{ $isEdit ? route('requests.printing.update', $serviceRequest) : route('requests.printing.store') }}"
+      method="POST" enctype="multipart/form-data" style="padding:20px"
+      onsubmit="handlePrintingSubmit(event)">
       @csrf
+      @if($isEdit) @method('PUT') @endif
+      <input type="hidden" name="submission_confirmed" id="submission_confirmed" value="0">
 
       <!-- File Upload — replace the existing drop zone section -->
       <div class="fg">
         <div class="flabel">
           <i class="fa-solid fa-file-arrow-up" style="color:var(--blue)"></i>
-          Upload File <span style="color:var(--red)">*</span>
+          {{ $isEdit ? 'Replace Uploaded File' : 'Upload File' }}
+          @if(!$isEdit)<span style="color:var(--red)">*</span>@else<span style="font-size:.65rem;color:var(--gray400);font-weight:600">(Optional)</span>@endif
         </div>
         <div id="drop-zone" onclick="document.getElementById('file-input').click()"
           style="border:2px dashed var(--gray300);border-radius:10px;padding:22px 16px;
@@ -70,25 +112,25 @@
             <i class="fa-solid fa-cloud-arrow-up"></i>
           </div>
           <div id="drop-text" style="font-size:.8rem;font-weight:700;color:var(--gray700)">
-            Click to browse or drag & drop
+            {{ $isEdit ? 'Click to replace the current file or drag & drop' : 'Click to browse or drag & drop' }}
           </div>
           <div style="font-size:.68rem;color:var(--gray400);margin-top:3px">
             PDF, DOC, DOCX, JPG, PNG · Max 10MB
           </div>
           <div id="file-preview"
-              style="display:none;margin-top:10px;padding:8px 12px;
+              style="display:{{ $isEdit ? 'flex' : 'none' }};margin-top:10px;padding:8px 12px;
                       background:var(--blue-bg);border-radius:8px;
                       align-items:center;gap:8px">
             <i class="fa-solid fa-file" style="color:var(--blue)"></i>
             <div style="text-align:left">
-              <div id="file-name-disp" style="font-size:.76rem;font-weight:700;color:var(--blue)"></div>
-              <div id="file-size-disp" style="font-size:.65rem;color:var(--gray400)"></div>
+              <div id="file-name-disp" style="font-size:.76rem;font-weight:700;color:var(--blue)">{{ $isEdit ? $serviceRequest->file_name : '' }}</div>
+              <div id="file-size-disp" style="font-size:.65rem;color:var(--gray400)">{{ $isEdit ? 'Current uploaded file — choose another file to replace it' : '' }}</div>
             </div>
           </div>
         </div>
         <input type="file" id="file-input" name="file"
               accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-              style="display:none" onchange="handleFile(this)" required>
+              style="display:none" onchange="handleFile(this)" {{ $isEdit ? '' : 'required' }}>
 
         {{-- Page detection result shown after upload --}}
         <div id="page-detection-info" style="display:none;margin-top:8px">
@@ -102,15 +144,14 @@
                   style="font-size:.72rem;color:var(--gray600);margin-top:1px"></div>
             </div>
             <div id="page-loading"
-                style="display:none;font-size:.75rem;color:var(--gray400);
-                        display:flex;align-items:center;gap:6px">
+                style="display:none;font-size:.75rem;color:var(--gray400);align-items:center;gap:6px">
               <i class="fa-solid fa-spinner fa-spin"></i> Detecting pages...
             </div>
           </div>
         </div>
       </div>
 
-      <input type="hidden" name="detected_pages" id="detected_pages_input" value="">
+      <input type="hidden" name="detected_pages" id="detected_pages_input" value="{{ old('detected_pages', $isEdit ? $serviceRequest->detected_pages : '') }}">
 
       <!-- Paper Size -->
       <div class="fg">
@@ -119,7 +160,7 @@
           @foreach($paperSizes as $ps)
           <label style="cursor:pointer{{ $ps->stock<=0?' opacity:.5;pointer-events:none':'' }}">
             <input type="radio" name="paper_size" value="{{ $ps->value }}" style="display:none"
-              {{ old('paper_size')==$ps->value?'checked':'' }}
+              {{ old('paper_size', $isEdit ? $serviceRequest->paper_size : null)==$ps->value?'checked':'' }}
               {{ $ps->stock<=0?'disabled':'' }} required>
             <div class="size-opt" style="padding:10px 8px">
               <div style="font-size:.82rem;font-weight:700">{{ explode(' ',$ps->name)[0] }}</div>
@@ -141,14 +182,14 @@
           <div class="flabel"><i class="fa-solid fa-palette" style="color:var(--blue)"></i> Print Type <span style="color:var(--red)">*</span></div>
           <div style="display:flex;gap:8px">
             <label style="flex:1;cursor:pointer">
-              <input type="radio" name="print_type" value="black_white" style="display:none" required {{ old('print_type','black_white')==='black_white'?'checked':'' }}>
+              <input type="radio" name="print_type" value="black_white" style="display:none" required {{ old('print_type', $isEdit ? $serviceRequest->print_type : 'black_white')==='black_white'?'checked':'' }}>
               <div class="type-opt">
                 <i class="fa-solid fa-circle-half-stroke" style="font-size:1rem;margin-bottom:4px"></i>
                 <div style="font-size:.72rem;font-weight:700">B&W</div>
               </div>
             </label>
             <label style="flex:1;cursor:pointer">
-              <input type="radio" name="print_type" value="colored" style="display:none" {{ old('print_type')==='colored'?'checked':'' }}>
+              <input type="radio" name="print_type" value="colored" style="display:none" {{ old('print_type', $isEdit ? $serviceRequest->print_type : null)==='colored'?'checked':'' }}>
               <div class="type-opt">
                 <i class="fa-solid fa-droplet" style="font-size:1rem;margin-bottom:4px;color:#e53935"></i>
                 <div style="font-size:.72rem;font-weight:700">Colored</div>
@@ -158,14 +199,14 @@
         </div>
         <div class="fg">
           <div class="flabel"><i class="fa-solid fa-hashtag" style="color:var(--blue)"></i> Number of Copies <span style="color:var(--red)">*</span></div>
-          <input type="number" name="copies" class="fc" min="1" max="100" value="{{ old('copies',1) }}" required>
+          <input type="number" name="copies" class="fc" min="1" max="100" value="{{ old('copies', $isEdit ? $serviceRequest->copies : 1) }}" required>
         </div>
       </div>
 
       <!-- Purpose -->
       <div class="fg">
         <div class="flabel"><i class="fa-solid fa-pen-to-square" style="color:var(--blue)"></i> Purpose <span style="color:var(--red)">*</span></div>
-        <textarea name="purpose" class="fc" rows="3" placeholder="State the purpose (e.g. thesis, assignment, report)..." required style="resize:vertical">{{ old('purpose') }}</textarea>
+        <textarea name="purpose" class="fc" rows="3" placeholder="State the purpose (e.g. thesis, assignment, report)..." required style="resize:vertical">{{ old('purpose', $isEdit ? $serviceRequest->purpose : '') }}</textarea>
       </div>
 
       <!-- Terms -->
@@ -178,7 +219,7 @@
       </div>
 
       <button type="submit" class="btn" style="background:linear-gradient(135deg,var(--blue),#1976d2)">
-        <i class="fa-solid fa-paper-plane"></i> Submit Printing Request
+        <i class="fa-solid fa-clipboard-check"></i> {{ $isEdit ? 'Review Changes' : 'Review Printing Request' }}
       </button>
     </form>
   </div>
@@ -193,12 +234,23 @@ input[type=radio]:checked+.size-opt{border-color:var(--blue);background:var(--bl
 input[type=radio]:checked+.type-opt{border-color:var(--blue);background:var(--blue-bg)}
 .type-opt:hover{border-color:var(--blue)}
 #drop-zone:hover,#drop-zone.drag-over{border-color:var(--blue);background:var(--blue-bg)}
+.confirm-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.confirm-item{background:var(--gray100);border:1px solid var(--gray200);border-radius:9px;padding:10px 12px;min-width:0}
+.confirm-item.full{grid-column:1/-1}
+.confirm-label{font-size:.62rem;color:var(--gray400);font-weight:800;text-transform:uppercase;letter-spacing:.03em;margin-bottom:3px}
+.confirm-value{font-size:.79rem;color:var(--gray800);font-weight:700;line-height:1.45;overflow-wrap:anywhere}
 @media(max-width:600px){.g2{grid-template-columns:1fr}}
+@media(max-width:520px){.confirm-grid{grid-template-columns:1fr}.confirm-item.full{grid-column:auto}}
 </style>
 @endpush
 
 @push('scripts')
 <script>
+const printingForm = document.getElementById('printingForm');
+const existingFileName = @json($isEdit ? $serviceRequest->file_name : null);
+let printingConfirmed = false;
+let pageDetectionPromise = Promise.resolve();
+
 // Page detection via AJAX
 async function detectPages(file) {
   const info    = document.getElementById('page-detection-info');
@@ -208,6 +260,7 @@ async function detectPages(file) {
 
   info.style.display    = 'block';
   loading.style.display = 'flex';
+  pcText.style.color    = 'var(--g700)';
   pcText.textContent    = '';
   scText.textContent    = '';
 
@@ -220,6 +273,7 @@ async function detectPages(file) {
       method: 'POST',
       body:   formData,
     });
+    if (!res.ok) throw new Error('Page detection failed.');
     const data = await res.json();
     loading.style.display = 'none';
 
@@ -228,10 +282,12 @@ async function detectPages(file) {
       pcText.textContent = `📄 Detected ${data.pages} page${data.pages>1?'s':''} in this file`;
       updateSheetCount();
     } else {
+      document.getElementById('detected_pages_input').value = '';
       pcText.textContent = '⚠️ Could not detect pages — sheet count will equal copies.';
       pcText.style.color = 'var(--orange)';
     }
   } catch(e) {
+    document.getElementById('detected_pages_input').value = '';
     loading.style.display = 'none';
     pcText.textContent = '⚠️ Page detection unavailable.';
     pcText.style.color = 'var(--orange)';
@@ -265,9 +321,10 @@ function handleFile(input) {
   // Trigger page detection
   const ext = f.name.split('.').pop().toLowerCase();
   if (['pdf','doc','docx'].includes(ext)) {
-    detectPages(f);
+    pageDetectionPromise = detectPages(f);
   } else {
     // Images = 1 page
+    pageDetectionPromise = Promise.resolve();
     document.getElementById('detected_pages_input').value = 1;
     const info = document.getElementById('page-detection-info');
     info.style.display = 'block';
@@ -275,6 +332,69 @@ function handleFile(input) {
     document.getElementById('sheet-count-text').textContent = '';
     updateSheetCount();
   }
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function confirmationItem(label, value, full = false) {
+  return `<div class="confirm-item${full ? ' full' : ''}">
+    <div class="confirm-label">${escapeHtml(label)}</div>
+    <div class="confirm-value">${escapeHtml(value || '—')}</div>
+  </div>`;
+}
+
+function buildPrintingConfirmation() {
+  const fileInput = document.getElementById('file-input');
+  const selectedFile = fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
+  const fileName = selectedFile ? selectedFile.name : existingFileName;
+  const paperSize = document.querySelector('input[name="paper_size"]:checked')?.value || '';
+  const printType = document.querySelector('input[name="print_type"]:checked')?.value || '';
+  const copies = parseInt(document.querySelector('[name="copies"]')?.value || '1', 10);
+  const pages = parseInt(document.getElementById('detected_pages_input').value || '0', 10);
+  const totalSheets = (pages > 0 ? pages : 1) * copies;
+  const purpose = document.querySelector('[name="purpose"]')?.value.trim() || '';
+
+  let html = '';
+  html += confirmationItem('Uploaded File', fileName, true);
+  html += confirmationItem('Paper Size', paperSize.toUpperCase());
+  html += confirmationItem('Print Type', printType === 'black_white' ? 'Black & White' : 'Colored');
+  html += confirmationItem('Copies', copies);
+  html += confirmationItem('Detected Pages', pages > 0 ? pages : 'Not detected');
+  html += confirmationItem('Estimated Sheets', totalSheets);
+  html += confirmationItem('Purpose', purpose, true);
+
+  document.getElementById('printing-confirm-summary').innerHTML = html;
+}
+
+async function handlePrintingSubmit(event) {
+  if (printingConfirmed) return true;
+
+  event.preventDefault();
+  if (!printingForm.checkValidity()) {
+    printingForm.reportValidity();
+    return false;
+  }
+
+  await pageDetectionPromise;
+  buildPrintingConfirmation();
+  openModal('printingConfirmModal');
+  return false;
+}
+
+function confirmPrintingSubmission() {
+  const button = document.getElementById('confirm-printing-submit');
+  printingConfirmed = true;
+  document.getElementById('submission_confirmed').value = '1';
+  button.disabled = true;
+  button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...';
+  printingForm.requestSubmit();
 }
 
 const dz = document.getElementById('drop-zone');
@@ -294,6 +414,15 @@ function acceptTerms(m,c) { document.getElementById(c).checked=true; closeModal(
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{
   if(e.target===m) m.classList.remove('open')
 }));
+
+document.addEventListener('DOMContentLoaded', () => {
+  const pages = parseInt(document.getElementById('detected_pages_input').value || '0', 10);
+  if (pages > 0 && existingFileName) {
+    document.getElementById('page-detection-info').style.display = 'block';
+    document.getElementById('page-count-text').textContent = `📄 Current file has ${pages} detected page${pages > 1 ? 's' : ''}`;
+    updateSheetCount();
+  }
+});
 </script>
 @endpush
 @endsection

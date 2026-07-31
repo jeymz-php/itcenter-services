@@ -141,6 +141,11 @@ body{background:var(--offwhite)}
 /* Upload zone */
 #drop-zone{border:2px dashed var(--gray300);border-radius:10px;padding:22px 16px;text-align:center;cursor:pointer;background:var(--gray100);transition:all .2s}
 #drop-zone:hover,#drop-zone.drag-over{border-color:var(--blue);background:var(--blue-bg)}
+.review-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.review-item{background:var(--gray100);border:1px solid var(--gray200);border-radius:9px;padding:10px 12px;min-width:0}
+.review-item.full{grid-column:1/-1}
+.review-label{font-size:.61rem;color:var(--gray400);font-weight:800;text-transform:uppercase;letter-spacing:.03em;margin-bottom:3px;line-height:1.3}
+.review-value{font-size:.78rem;color:var(--gray800);font-weight:700;line-height:1.45;overflow-wrap:anywhere}
 
 /* CB */
 .cb-row{display:flex;align-items:center;gap:8px;font-size:.77rem;color:var(--gray600);cursor:pointer}
@@ -153,6 +158,8 @@ body{background:var(--offwhite)}
 @media(max-width:600px){
   .role-grid,.svc-grid{grid-template-columns:1fr 1fr}
   .g2{grid-template-columns:1fr}
+  .review-grid{grid-template-columns:1fr}
+  .review-item.full{grid-column:auto}
   .pub-hero h1{font-size:1.2rem}
   .steps-bar .step-label{display:none}
 }
@@ -180,6 +187,31 @@ body{background:var(--offwhite)}
 <div class="pub-hero">
   <h1><i class="fa-solid fa-paper-plane" style="margin-right:8px"></i>IT Center Public Request</h1>
   <p>Submit a service request as a student, faculty/staff member, or visitor — no account required.</p>
+</div>
+
+{{-- FINAL SUBMISSION CONFIRMATION MODAL --}}
+<div class="modal-bg" id="requestConfirmModal">
+  <div class="modal-box" style="max-width:620px">
+    <div class="modal-hd">
+      <h3><i class="fa-solid fa-circle-check" style="color:var(--g600);margin-right:7px"></i>Confirm Request Submission</h3>
+      <button type="button" class="modal-close" onclick="closeModal('requestConfirmModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body" style="padding:18px 22px">
+      <div class="abox info" style="margin-bottom:14px">
+        <i class="fa-solid fa-circle-info"></i>
+        <div>Check every detail before submitting. For Printing requests, verify that the correct file is uploaded. Use <strong>Modify Details</strong> to make corrections.</div>
+      </div>
+      <div id="final-confirm-summary" class="review-grid"></div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="modal-btn secondary" onclick="modifyPublicRequest()">
+        <i class="fa-solid fa-pen-to-square"></i> Modify Details
+      </button>
+      <button type="button" class="modal-btn primary" id="confirm-public-submit" onclick="confirmPublicSubmission()">
+        <i class="fa-solid fa-paper-plane"></i> Confirm & Submit
+      </button>
+    </div>
+  </div>
 </div>
 
 {{-- TERMS MODAL --}}
@@ -275,6 +307,7 @@ body{background:var(--offwhite)}
 
   <form action="{{ route('public.request.store') }}" method="POST" enctype="multipart/form-data" id="mainForm">
     @csrf
+    <input type="hidden" name="submission_confirmed" id="public-submission-confirmed" value="0">
 
     {{-- ── STEP 1: SELECT ROLE ── --}}
     <div id="step-1">
@@ -465,6 +498,16 @@ body{background:var(--offwhite)}
                 </div>
               </div>
               <input type="file" id="file-input" name="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" style="display:none" onchange="handleFile(this)">
+              <div id="guest-page-detection-info" style="display:none;margin-top:8px;background:var(--g100);border-radius:9px;padding:10px 13px;align-items:center;gap:9px">
+                <i class="fa-solid fa-file-lines" style="color:var(--g600)"></i>
+                <div style="min-width:0">
+                  <div id="guest-page-count-text" style="font-size:.76rem;font-weight:700;color:var(--g700)"></div>
+                  <div id="guest-sheet-count-text" style="font-size:.7rem;color:var(--gray600);margin-top:2px"></div>
+                </div>
+                <div id="guest-page-loading" style="display:none;margin-left:auto;font-size:.72rem;color:var(--gray400);align-items:center;gap:5px">
+                  <i class="fa-solid fa-spinner fa-spin"></i> Detecting...
+                </div>
+              </div>
             </div>
             <div class="fg">
               <div class="flabel"><i class="fa-solid fa-expand" style="color:var(--blue)"></i> Paper Size <span style="color:var(--red)">*</span></div>
@@ -613,8 +656,8 @@ body{background:var(--offwhite)}
             </label>
           </div>
 
-          <button type="submit" class="btn-primary">
-            <i class="fa-solid fa-paper-plane"></i> Submit Request
+          <button type="submit" class="btn-primary" id="public-submit-button">
+            <i class="fa-solid fa-clipboard-check"></i> Review Final Confirmation
           </button>
         </div>
       </div>
@@ -657,6 +700,10 @@ body{background:var(--offwhite)}
 <script>
 let currentRole = '{{ old('role','') }}';
 let currentSvc  = '{{ old('service_type','') }}';
+const mainForm = document.getElementById('mainForm');
+let publicSubmissionConfirmed = false;
+let guestDetectedPages = 0;
+let publicPageDetectionPromise = Promise.resolve();
 
 // Paper size / PC duration options are loaded for every campus at once (the guest
 // picks their campus later in this same form), so only reveal the ones matching
@@ -723,6 +770,14 @@ function selectRole(role, el) {
     idInput.removeAttribute('required');
     resOpt.classList.add('disabled');
     visNotice.style.display = 'block';
+
+    if (currentSvc === 'research') {
+      currentSvc = '';
+      document.getElementById('svc-input').value = '';
+      document.querySelectorAll('.svc-opt').forEach(o => {
+        o.classList.remove('selected-print','selected-photo','selected-research');
+      });
+    }
   } else {
     idGroup.style.display = 'block';
     idInput.setAttribute('required','required');
@@ -730,6 +785,8 @@ function selectRole(role, el) {
     resOpt.classList.remove('disabled');
     visNotice.style.display = 'none';
   }
+
+  updatePublicSubmitButton();
 }
 
 // Service selection
@@ -741,13 +798,50 @@ function selectService(svc, el) {
     o.classList.remove('selected-print','selected-photo','selected-research');
   });
   el.classList.add(`selected-${svc === 'research' ? 'research' : (svc === 'printing' ? 'print' : 'photo')}`);
+  updatePublicSubmitButton();
+}
+
+function updatePublicSubmitButton() {
+  const button = document.getElementById('public-submit-button');
+  if (!button) return;
+
+  button.innerHTML = currentSvc === 'printing'
+    ? '<i class="fa-solid fa-clipboard-check"></i> Review Final Confirmation'
+    : '<i class="fa-solid fa-paper-plane"></i> Submit Request';
 }
 
 // Show/hide service fields in step 4
+function setServiceSectionState(sectionId, active) {
+  const section = document.getElementById(sectionId);
+  if (!section) return;
+
+  section.style.display = active ? 'block' : 'none';
+  section.querySelectorAll('input, select, textarea').forEach(input => {
+    if (input.dataset.initiallyDisabled === undefined) {
+      input.dataset.initiallyDisabled = input.disabled ? '1' : '0';
+    }
+    input.disabled = !active || input.dataset.initiallyDisabled === '1';
+  });
+}
+
 function updateStep4() {
-  document.getElementById('printing-fields').style.display  = currentSvc === 'printing'  ? 'block' : 'none';
-  document.getElementById('photocopy-fields').style.display = currentSvc === 'photocopy' ? 'block' : 'none';
-  document.getElementById('research-fields').style.display  = currentSvc === 'research'  ? 'block' : 'none';
+  setServiceSectionState('printing-fields', currentSvc === 'printing');
+  setServiceSectionState('photocopy-fields', currentSvc === 'photocopy');
+  setServiceSectionState('research-fields', currentSvc === 'research');
+
+  const printFile = document.getElementById('file-input');
+  if (printFile) printFile.required = currentSvc === 'printing';
+
+  document.querySelectorAll('#printing-fields input[name="paper_size"], #printing-fields input[name="print_type"], #printing-fields input[name="copies"]').forEach(input => {
+    input.required = currentSvc === 'printing';
+  });
+  document.querySelectorAll('#photocopy-fields input[name="paper_size"], #photocopy-fields input[name="copies"]').forEach(input => {
+    input.required = currentSvc === 'photocopy';
+  });
+  document.querySelectorAll('#research-fields input[name="duration_minutes"]').forEach(input => {
+    input.required = currentSvc === 'research';
+  });
+
   const titles = {
     printing:  'Step 4 — Printing Details',
     photocopy: 'Step 4 — Photocopy Details',
@@ -778,7 +872,7 @@ function updateStepBar(n) {
   }
 }
 
-function nextStep(from) {
+async function nextStep(from) {
   if (from === 1) {
     if (!currentRole) { alert('Please select your role to continue.'); return; }
   }
@@ -798,6 +892,10 @@ function nextStep(from) {
     updateStep4();
   }
   if (from === 4) {
+    if (!validateServiceDetails()) return;
+    if (currentSvc === 'printing') {
+      await publicPageDetectionPromise;
+    }
     buildReview();
   }
   showStep(from + 1);
@@ -807,29 +905,156 @@ function prevStep(from) {
   showStep(from - 1);
 }
 
-// Build review summary
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function reviewItem(label, value, full = false) {
+  return `<div class="review-item${full ? ' full' : ''}">
+    <div class="review-label">${escapeHtml(label)}</div>
+    <div class="review-value">${escapeHtml(value || '—')}</div>
+  </div>`;
+}
+
+function validateServiceDetails() {
+  const purpose = document.querySelector('[name="purpose"]')?.value.trim();
+  if (!purpose) {
+    alert('Please enter the purpose of your request.');
+    document.querySelector('[name="purpose"]')?.focus();
+    return false;
+  }
+
+  if (currentSvc === 'printing') {
+    const file = document.getElementById('file-input')?.files?.[0];
+    const paper = document.querySelector('#printing-fields input[name="paper_size"]:checked:not(:disabled)');
+    const type = document.querySelector('#printing-fields input[name="print_type"]:checked:not(:disabled)');
+    const copies = parseInt(document.querySelector('#printing-fields input[name="copies"]')?.value || '0', 10);
+
+    if (!file) { alert('Please upload the file you want to print.'); return false; }
+    if (!paper) { alert('Please select an available paper size.'); return false; }
+    if (!type) { alert('Please select a print type.'); return false; }
+    if (!copies || copies < 1 || copies > 100) { alert('Copies must be between 1 and 100.'); return false; }
+  }
+
+  if (currentSvc === 'photocopy') {
+    const paper = document.querySelector('#photocopy-fields input[name="paper_size"]:checked:not(:disabled)');
+    const copies = parseInt(document.querySelector('#photocopy-fields input[name="copies"]')?.value || '0', 10);
+    if (!paper) { alert('Please select an available paper size.'); return false; }
+    if (!copies || copies < 1 || copies > 100) { alert('Copies must be between 1 and 100.'); return false; }
+  }
+
+  if (currentSvc === 'research') {
+    const duration = document.querySelector('#research-fields input[name="duration_minutes"]:checked:not(:disabled)');
+    if (!duration) { alert('Please select a research duration.'); return false; }
+  }
+
+  return true;
+}
+
+// Build a complete review summary for both Step 5 and final confirmation.
 function buildReview() {
   const roleNames = { student:'Student', faculty_staff:'Faculty / Staff', visitor:'Visitor' };
   const svcNames  = { printing:'Printing', photocopy:'Photocopy', research:'Research / PC Lab' };
-  const fn = document.querySelector('[name=first_name]').value;
-  const ln = document.querySelector('[name=last_name]').value;
-  const em = document.querySelector('[name=email]').value;
-  const ca = document.querySelector('[name=campus]') ? document.querySelector('[name=campus] option:checked').text : '';
-  const id = document.getElementById('id-number-input').value;
+  const fn = document.querySelector('[name="first_name"]')?.value.trim() || '';
+  const ln = document.querySelector('[name="last_name"]')?.value.trim() || '';
+  const em = document.querySelector('[name="email"]')?.value.trim() || '';
+  const campusSelect = document.querySelector('[name="campus"]');
+  const ca = campusSelect?.selectedOptions?.[0]?.text || '';
+  const id = document.getElementById('id-number-input')?.value.trim() || '';
+  const purpose = document.querySelector('[name="purpose"]')?.value.trim() || '';
 
-  let html = `
-    <div><div style="font-size:.63rem;color:var(--gray400);font-weight:700;text-transform:uppercase;margin-bottom:3px">Role</div><div style="font-size:.84rem;font-weight:700;color:var(--gray800)">${roleNames[currentRole]||currentRole}</div></div>
-    <div><div style="font-size:.63rem;color:var(--gray400);font-weight:700;text-transform:uppercase;margin-bottom:3px">Service</div><div style="font-size:.84rem;font-weight:700;color:var(--gray800)">${svcNames[currentSvc]||currentSvc}</div></div>
-    <div><div style="font-size:.63rem;color:var(--gray400);font-weight:700;text-transform:uppercase;margin-bottom:3px">Full Name</div><div style="font-size:.84rem;font-weight:700;color:var(--gray800)">${fn} ${ln}</div></div>
-    <div><div style="font-size:.63rem;color:var(--gray400);font-weight:700;text-transform:uppercase;margin-bottom:3px">Email</div><div style="font-size:.82rem;color:var(--gray800)">${em}</div></div>
-    <div><div style="font-size:.63rem;color:var(--gray400);font-weight:700;text-transform:uppercase;margin-bottom:3px">Campus</div><div style="font-size:.82rem;color:var(--gray800)">${ca}</div></div>`;
+  let html = '';
+  html += reviewItem('Role', roleNames[currentRole] || currentRole);
+  html += reviewItem('Service', svcNames[currentSvc] || currentSvc);
+  html += reviewItem('Full Name', `${fn} ${ln}`.trim());
+  html += reviewItem('Email', em);
+  html += reviewItem('Campus', ca);
+  if (id) html += reviewItem('ID Number', id);
 
-  if (id) html += `<div><div style="font-size:.63rem;color:var(--gray400);font-weight:700;text-transform:uppercase;margin-bottom:3px">ID Number</div><div style="font-size:.82rem;font-weight:700;color:var(--gray800)">${id}</div></div>`;
+  if (currentSvc === 'printing') {
+    const file = document.getElementById('file-input')?.files?.[0];
+    const paper = document.querySelector('#printing-fields input[name="paper_size"]:checked:not(:disabled)')?.value || '';
+    const type = document.querySelector('#printing-fields input[name="print_type"]:checked:not(:disabled)')?.value || '';
+    const copies = parseInt(document.querySelector('#printing-fields input[name="copies"]')?.value || '1', 10);
+    const totalSheets = (guestDetectedPages > 0 ? guestDetectedPages : 1) * copies;
+
+    html += reviewItem('Uploaded File', file?.name || '', true);
+    html += reviewItem('Paper Size', paper.toUpperCase());
+    html += reviewItem('Print Type', type === 'black_white' ? 'Black & White' : 'Colored');
+    html += reviewItem('Copies', copies);
+    html += reviewItem('Detected Pages', guestDetectedPages > 0 ? guestDetectedPages : 'Not detected');
+    html += reviewItem('Estimated Sheets', totalSheets);
+  } else if (currentSvc === 'photocopy') {
+    const paper = document.querySelector('#photocopy-fields input[name="paper_size"]:checked:not(:disabled)')?.value || '';
+    const copies = document.querySelector('#photocopy-fields input[name="copies"]')?.value || '';
+    html += reviewItem('Paper Size', paper.toUpperCase());
+    html += reviewItem('Copies', copies);
+  } else if (currentSvc === 'research') {
+    const duration = document.querySelector('#research-fields input[name="duration_minutes"]:checked:not(:disabled)')?.value || '';
+    html += reviewItem('Duration', duration ? `${duration} minutes` : '');
+  }
+
+  html += reviewItem('Purpose', purpose, true);
 
   document.getElementById('review-summary').innerHTML = html;
+  return html;
 }
 
-// File upload
+async function detectGuestPages(file) {
+  const info = document.getElementById('guest-page-detection-info');
+  const loading = document.getElementById('guest-page-loading');
+  const pageText = document.getElementById('guest-page-count-text');
+  const sheetText = document.getElementById('guest-sheet-count-text');
+
+  info.style.display = 'flex';
+  loading.style.display = 'flex';
+  pageText.style.color = 'var(--g700)';
+  pageText.textContent = '';
+  sheetText.textContent = '';
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('_token', '{{ csrf_token() }}');
+
+  try {
+    const response = await fetch('{{ route('public.request.detect-pages') }}', {
+      method: 'POST',
+      body: formData,
+    });
+    if (!response.ok) throw new Error('Page detection failed.');
+    const data = await response.json();
+    guestDetectedPages = data.pages && data.pages > 0 ? parseInt(data.pages, 10) : 0;
+    loading.style.display = 'none';
+
+    if (guestDetectedPages > 0) {
+      pageText.textContent = `Detected ${guestDetectedPages} page${guestDetectedPages > 1 ? 's' : ''} in this file`;
+      updateGuestSheetCount();
+    } else {
+      pageText.textContent = 'Page count could not be detected. Sheet count will use one page per copy.';
+      pageText.style.color = 'var(--orange)';
+    }
+  } catch (error) {
+    guestDetectedPages = 0;
+    loading.style.display = 'none';
+    pageText.textContent = 'Page detection is currently unavailable.';
+    pageText.style.color = 'var(--orange)';
+  }
+}
+
+function updateGuestSheetCount() {
+  const copies = parseInt(document.querySelector('#printing-fields input[name="copies"]')?.value || '1', 10);
+  const sheetText = document.getElementById('guest-sheet-count-text');
+  if (!sheetText) return;
+  const pages = guestDetectedPages > 0 ? guestDetectedPages : 1;
+  sheetText.textContent = `${pages} page${pages > 1 ? 's' : ''} × ${copies} cop${copies === 1 ? 'y' : 'ies'} = ${pages * copies} estimated sheet${pages * copies === 1 ? '' : 's'}`;
+}
+
+// File upload and page preview
 function handleFile(input) {
   if (!input.files || !input.files[0]) return;
   const f = input.files[0];
@@ -839,6 +1064,19 @@ function handleFile(input) {
   fp.style.display = 'flex';
   document.getElementById('drop-text').textContent = 'File selected:';
   document.getElementById('drop-icon').innerHTML = '<i class="fa-solid fa-file-circle-check" style="color:var(--blue)"></i>';
+
+  const ext = f.name.split('.').pop().toLowerCase();
+  if (['jpg', 'jpeg', 'png'].includes(ext)) {
+    guestDetectedPages = 1;
+    publicPageDetectionPromise = Promise.resolve();
+    document.getElementById('guest-page-detection-info').style.display = 'flex';
+    document.getElementById('guest-page-loading').style.display = 'none';
+    document.getElementById('guest-page-count-text').style.color = 'var(--g700)';
+    document.getElementById('guest-page-count-text').textContent = 'Image file — 1 page detected';
+    updateGuestSheetCount();
+  } else {
+    publicPageDetectionPromise = detectGuestPages(f);
+  }
 }
 
 const dz = document.getElementById('drop-zone');
@@ -853,6 +1091,8 @@ if (dz) {
     }
   });
 }
+
+document.querySelector('#printing-fields input[name="copies"]')?.addEventListener('input', updateGuestSheetCount);
 
 // Paper opt selection highlight
 document.querySelectorAll('.paper-opt').forEach(o => {
@@ -899,6 +1139,55 @@ function acceptTerms() {
   document.getElementById('terms_check').checked = true;
   closeModal('termsModal');
 }
+
+function modifyPublicRequest() {
+  closeModal('requestConfirmModal');
+  showStep(4);
+}
+
+function confirmPublicSubmission() {
+  const button = document.getElementById('confirm-public-submit');
+  publicSubmissionConfirmed = true;
+  document.getElementById('public-submission-confirmed').value = '1';
+  button.disabled = true;
+  button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...';
+  mainForm.requestSubmit();
+}
+
+mainForm.addEventListener('submit', async event => {
+  if (publicSubmissionConfirmed) return;
+
+  event.preventDefault();
+
+  if (!validateServiceDetails()) {
+    showStep(4);
+    return;
+  }
+
+  const terms = document.getElementById('terms_check');
+  if (!terms.checked) {
+    terms.reportValidity();
+    return;
+  }
+
+  // The additional confirmation is required for Printing because the user
+  // must verify the exact uploaded file and all printing options. Other public
+  // services already have the Step 5 review and can submit directly.
+  if (currentSvc !== 'printing') {
+    publicSubmissionConfirmed = true;
+    const submitButton = document.getElementById('public-submit-button');
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...';
+    mainForm.requestSubmit();
+    return;
+  }
+
+  await publicPageDetectionPromise;
+  const summary = buildReview();
+  document.getElementById('final-confirm-summary').innerHTML = summary;
+  openModal('requestConfirmModal');
+});
+
 document.querySelectorAll('.modal-bg').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); }));
 
 // If old() data exists, restore state
@@ -908,8 +1197,10 @@ document.querySelectorAll('.modal-bg').forEach(m => m.addEventListener('click', 
 @if(old('service_type'))
   currentSvc = '{{ old('service_type') }}';
 @endif
+updatePublicSubmitButton();
 @if($errors->any())
   // Restore to appropriate step on validation error
+  updateStep4();
   showStep(4);
 @else
   showStep(1);

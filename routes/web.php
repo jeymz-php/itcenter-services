@@ -48,11 +48,15 @@ Route::middleware('auth')->group(function () {
     // Service Requests (user)
     Route::get('/requests/printing',   [ServiceRequestController::class, 'printing'])->name('requests.printing');
     Route::post('/requests/printing',  [ServiceRequestController::class, 'storePrinting'])->name('requests.printing.store');
+    Route::get('/requests/{serviceRequest}/printing/edit', [ServiceRequestController::class, 'editPrinting'])->name('requests.printing.edit');
+    Route::put('/requests/{serviceRequest}/printing',      [ServiceRequestController::class, 'updatePrinting'])->name('requests.printing.update');
     Route::get('/requests/photocopy',  [ServiceRequestController::class, 'photocopy'])->name('requests.photocopy');
     Route::post('/requests/photocopy', [ServiceRequestController::class, 'storePhotocopy'])->name('requests.photocopy.store');
     Route::get('/requests/research',   [ServiceRequestController::class, 'research'])->name('requests.research');
     Route::post('/requests/research',  [ServiceRequestController::class, 'storeResearch'])->name('requests.research.store');
     Route::get('/requests/history',    [ServiceRequestController::class, 'history'])->name('requests.history');
+    Route::get('/requests/{serviceRequest}/details', [ServiceRequestController::class, 'show'])->name('requests.show');
+    Route::get('/requests/{serviceRequest}/file',    [ServiceRequestController::class, 'openFile'])->name('requests.file');
     Route::post('/requests/{serviceRequest}/request-extend', [ServiceRequestController::class, 'requestExtend'])->name('requests.request-extend');
     Route::post('/ratings', [App\Http\Controllers\User\RatingController::class, 'store'])->name('ratings.store');
 
