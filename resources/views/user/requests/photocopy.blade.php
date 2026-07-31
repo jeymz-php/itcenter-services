@@ -38,6 +38,13 @@
     </div>
   @endif
 
+  @if(!$serviceAvailable)
+    <div class="abox err" style="margin-bottom:16px">
+      <i class="fa-solid fa-circle-xmark"></i>
+      <div><strong>Photocopy service is currently unavailable.</strong><br>Please review the User Manual or Infographics and check again later, or contact the IT Center Services Desk.</div>
+    </div>
+  @endif
+
   <div style="background:var(--white);border-radius:16px;box-shadow:var(--shadow-sm);border:1.5px solid var(--gray200);overflow:hidden">
 
     <div style="background:linear-gradient(135deg,var(--orange),#f57c00);padding:18px 22px;display:flex;align-items:center;gap:12px">
@@ -102,7 +109,7 @@
         </label>
       </div>
 
-      <button type="submit" class="btn" style="background:linear-gradient(135deg,var(--orange),#f57c00)">
+      <button type="submit" class="btn" style="background:linear-gradient(135deg,var(--orange),#f57c00);{{ !$serviceAvailable ? 'opacity:.55;cursor:not-allowed' : '' }}" {{ !$serviceAvailable ? 'disabled' : '' }}>
         <i class="fa-solid fa-paper-plane"></i> Submit Photocopy Request
       </button>
     </form>

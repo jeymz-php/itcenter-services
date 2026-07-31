@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 use App\Models\GuestRequest;
 use App\Models\InventoryItem;
 use App\Models\AdminNotification;
+use App\Models\Setting;
 use Illuminate\Http\Request;
 
 class GuestRequestController extends Controller
@@ -11,7 +12,8 @@ class GuestRequestController extends Controller
     public function index() {
         $paperSizes = InventoryItem::where('category','paper_size')->where('is_active',true)->orderBy('sort_order')->get();
         $durations  = InventoryItem::where('category','pc_duration')->where('is_active',true)->orderBy('sort_order')->get();
-        return view('public.request', compact('paperSizes','durations'));
+        $serviceAvailability = Setting::serviceAvailability();
+        return view('public.request', compact('paperSizes','durations','serviceAvailability'));
     }
 
     public function checkUsage(Request $request) {
@@ -20,16 +22,19 @@ class GuestRequestController extends Controller
 
         return response()->json([
             'printing' => [
+                'available' => Setting::isServiceAvailable('printing'),
                 'limit'     => GuestRequest::dailyPrintingLimit(),
                 'used'      => GuestRequest::printingPagesUsedToday($email),
                 'remaining' => GuestRequest::printingPagesRemainingToday($email),
             ],
             'photocopy' => [
+                'available' => Setting::isServiceAvailable('photocopy'),
                 'limit'     => GuestRequest::dailyPhotocopyLimit(),
                 'used'      => GuestRequest::photocopyPagesUsedToday($email),
                 'remaining' => GuestRequest::photocopyPagesRemainingToday($email),
             ],
             'research' => [
+                'available' => Setting::isServiceAvailable('research'),
                 'limit'     => GuestRequest::dailyResearchLimit(),
                 'used'      => GuestRequest::minutesUsedToday($email),
                 'remaining' => GuestRequest::minutesRemainingToday($email),
@@ -38,6 +43,14 @@ class GuestRequestController extends Controller
     }
 
     public function store(Request $request) {
+        $requestedService = $request->input('service_type');
+        if (in_array($requestedService, ['printing','photocopy','research'], true)
+            && !Setting::isServiceAvailable($requestedService)) {
+            return back()->withErrors([
+                'service_type' => Setting::serviceUnavailableMessage($requestedService),
+            ])->withInput();
+        }
+
         $request->validate([
             'role'         => 'required|in:student,faculty_staff,visitor',
             'first_name'   => 'required|string|max:100',
@@ -168,6 +181,10 @@ class GuestRequestController extends Controller
     }
 
     public function detectPages(Request $request) {
+        if (!Setting::isServiceAvailable('printing')) {
+            return response()->json(['message' => Setting::serviceUnavailableMessage('printing')], 422);
+        }
+
         $request->validate([
             'file' => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240',
         ]);

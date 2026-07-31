@@ -71,6 +71,13 @@
     </div>
   @endif
 
+  @if(!$serviceAvailable)
+    <div class="abox err" style="margin-bottom:16px">
+      <i class="fa-solid fa-circle-xmark"></i>
+      <div><strong>Printing service is currently unavailable.</strong><br>Please check the User Manual or Infographics for guidance and try again later, or contact the IT Center Services Desk.</div>
+    </div>
+  @endif
+
   <div style="background:var(--white);border-radius:16px;box-shadow:var(--shadow-sm);border:1.5px solid var(--gray200);overflow:hidden">
 
     <div style="background:linear-gradient(135deg,var(--blue),#1976d2);padding:18px 22px;display:flex;align-items:center;gap:12px">
@@ -218,7 +225,7 @@
         </label>
       </div>
 
-      <button type="submit" class="btn" style="background:linear-gradient(135deg,var(--blue),#1976d2)">
+      <button type="submit" class="btn" style="background:linear-gradient(135deg,var(--blue),#1976d2);{{ !$serviceAvailable ? 'opacity:.55;cursor:not-allowed' : '' }}" {{ !$serviceAvailable ? 'disabled' : '' }}>
         <i class="fa-solid fa-clipboard-check"></i> {{ $isEdit ? 'Review Changes' : 'Review Printing Request' }}
       </button>
     </form>

@@ -1,4 +1,7 @@
-@php $user = Auth::user(); @endphp
+@php
+  $user = Auth::user();
+  $serviceAvailability = \App\Models\Setting::serviceAvailability();
+@endphp
 <aside class="sidebar">
   <div class="sb-brand">
     <button class="sb-toggle" onclick="toggleNav()" id="sb-toggle">
@@ -63,16 +66,25 @@
     @if($user->status === 'active')
     <div class="sb-section">Services</div>
     <a href="{{ route('requests.printing') }}"
-       class="sb-link {{ request()->routeIs('requests.printing*') ? 'active' : '' }}">
+       class="sb-link {{ request()->routeIs('requests.printing*') ? 'active' : '' }}"
+       style="{{ !($serviceAvailability['printing'] ?? true) ? 'opacity:.58' : '' }}"
+       title="{{ !($serviceAvailability['printing'] ?? true) ? 'Printing is currently unavailable' : 'Printing service' }}">
       <i class="fa-solid fa-print"></i> Printing
+      @if(!($serviceAvailability['printing'] ?? true))<span class="nb" style="background:var(--red)">OFF</span>@endif
     </a>
     <a href="{{ route('requests.photocopy') }}"
-       class="sb-link {{ request()->routeIs('requests.photocopy*') ? 'active' : '' }}">
+       class="sb-link {{ request()->routeIs('requests.photocopy*') ? 'active' : '' }}"
+       style="{{ !($serviceAvailability['photocopy'] ?? true) ? 'opacity:.58' : '' }}"
+       title="{{ !($serviceAvailability['photocopy'] ?? true) ? 'Photocopy is currently unavailable' : 'Photocopy service' }}">
       <i class="fa-solid fa-copy"></i> Photocopy
+      @if(!($serviceAvailability['photocopy'] ?? true))<span class="nb" style="background:var(--red)">OFF</span>@endif
     </a>
     <a href="{{ route('requests.research') }}"
-       class="sb-link {{ request()->routeIs('requests.research*') ? 'active' : '' }}">
+       class="sb-link {{ request()->routeIs('requests.research*') ? 'active' : '' }}"
+       style="{{ !($serviceAvailability['research'] ?? true) ? 'opacity:.58' : '' }}"
+       title="{{ !($serviceAvailability['research'] ?? true) ? 'Research / PC Lab is currently unavailable' : 'Research / PC Lab service' }}">
       <i class="fa-solid fa-desktop"></i> Research / PC Lab
+      @if(!($serviceAvailability['research'] ?? true))<span class="nb" style="background:var(--red)">OFF</span>@endif
     </a>
 
     <div class="sb-section">History</div>
@@ -94,6 +106,10 @@
     <a href="#" onclick="openModal('userGuideModal');return false;" class="sb-link">
       <img src="{{ asset('images/icons/user-guide_icon.png') }}" alt="" style="width:14px;height:14px;object-fit:contain;filter:brightness(0) invert(1);opacity:.85">
       User Guide
+    </a>
+    <a href="#" onclick="openModal('versionModal');return false;" class="sb-link">
+      <i class="fa-solid fa-rocket"></i> Version &amp; Updates
+      <span class="nb" style="background:var(--g500)">v{{ \App\Models\Setting::get('system_version', '1.0.0') }}</span>
     </a>
 
     <div class="sb-section">Account</div>
@@ -127,34 +143,5 @@
   </div>
 </aside>
 
-{{-- USER MANUAL & GUIDE MODAL — lives in the sidebar partial so it's available
-     on every authenticated page regardless of which one triggered it --}}
-<div class="modal-bg" id="userGuideModal">
-  <div class="modal-box" style="max-width:1100px;width:96vw;height:92vh;max-height:92vh">
-    <div class="modal-hd">
-      <h3>
-        <img src="{{ asset('images/icons/user-guide_icon.png') }}" alt="" style="width:18px;height:18px;vertical-align:middle;margin-right:7px;object-fit:contain">
-        User Manual &amp; Guide
-      </h3>
-      <button class="modal-close" onclick="closeModal('userGuideModal')"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <div class="modal-body" style="padding:0;flex:1;display:flex;flex-direction:column;min-height:0">
-      <iframe src="{{ asset('documents/user-manual.pdf') }}#view=FitH" style="width:100%;height:100%;border:none;flex:1"></iframe>
-    </div>
-    <div class="modal-footer">
-      <a href="{{ asset('documents/user-manual.pdf') }}" target="_blank" class="modal-btn secondary"
-         style="text-decoration:none;display:inline-flex;align-items:center;gap:6px">
-        <i class="fa-solid fa-up-right-from-square"></i> Open in New Tab
-      </a>
-      <button type="button" class="modal-btn primary" onclick="closeModal('userGuideModal')">Close</button>
-    </div>
-  </div>
-</div>
-
-@push('scripts')
-<script>
-function openModal(id) { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open')}));
-</script>
-@endpush
+@include('partials.user-guide-modal')
+@include('partials.version-modal')

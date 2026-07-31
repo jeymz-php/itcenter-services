@@ -143,6 +143,7 @@ Route::prefix('messages')->name('messages.')->group(function () {
         Route::get('/',  [App\Http\Controllers\Admin\SettingsController::class, 'index'])->name('index');
         Route::put('/',  [App\Http\Controllers\Admin\SettingsController::class, 'update'])->name('update');
 
+        Route::put('/services',    [App\Http\Controllers\Admin\SettingsController::class, 'updateServices'])->name('services');
         Route::put('/hours',       [App\Http\Controllers\Admin\SettingsController::class, 'updateHours'])->name('hours');
         Route::put('/version',     [App\Http\Controllers\Admin\SettingsController::class, 'updateVersion'])->name('version');
         Route::put('/maintenance', [App\Http\Controllers\Admin\SettingsController::class, 'updateMaintenance'])->name('maintenance');

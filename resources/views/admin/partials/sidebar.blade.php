@@ -98,11 +98,11 @@
        class="sb-link {{ request()->routeIs('admin.admins.*') ? 'active' : '' }}">
       <i class="fa-solid fa-user-shield"></i> Manage Admins
     </a>
+    @endif
     <a href="{{ route('admin.settings.index') }}"
        class="sb-link {{ request()->routeIs('admin.settings.*') ? 'active' : '' }}">
       <i class="fa-solid fa-sliders"></i> Settings
     </a>
-    @endif
     @if($pendingAccReqs)
     <a href="{{ route('admin.users.index') }}"
        class="sb-link {{ request()->routeIs('admin.account-requests.*') ? 'active' : '' }}">

@@ -89,7 +89,9 @@ body{background:var(--offwhite)}
 .svc-opt.selected-print{border-color:var(--blue);background:var(--blue-bg)}
 .svc-opt.selected-photo{border-color:var(--orange);background:var(--orange-bg)}
 .svc-opt.selected-research{border-color:var(--g500);background:var(--g100)}
-.svc-opt.disabled{opacity:.4;cursor:not-allowed;pointer-events:none}
+.svc-opt.disabled{opacity:.48;cursor:not-allowed;pointer-events:none;filter:grayscale(.25)}
+.svc-status{display:inline-flex;align-items:center;gap:4px;margin-top:8px;padding:3px 7px;border-radius:8px;font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.03em}
+.svc-status.on{background:var(--g100);color:var(--g700)}.svc-status.off{background:var(--red-bg);color:var(--red)}
 
 /* FORM */
 .fg{margin-bottom:14px}
@@ -270,6 +272,16 @@ body{background:var(--offwhite)}
 {{-- MAIN --}}
 <div class="pub-container">
 
+  @php
+    $unavailablePublicServices = collect($serviceAvailability)->reject()->keys()->map(fn($service) => \App\Models\Setting::serviceLabel($service));
+  @endphp
+  @if($unavailablePublicServices->isNotEmpty())
+  <div class="abox warn" style="margin-bottom:16px">
+    <i class="fa-solid fa-circle-exclamation"></i>
+    <div><strong>Temporarily unavailable:</strong> {{ $unavailablePublicServices->join(', ') }}. Disabled services cannot accept new public requests at this time.</div>
+  </div>
+  @endif
+
   @if($errors->any())
   <div class="abox err">
     <i class="fa-solid fa-triangle-exclamation"></i>
@@ -431,23 +443,26 @@ body{background:var(--offwhite)}
           <input type="hidden" name="service_type" id="svc-input" value="{{ old('service_type') }}">
           <div class="svc-grid">
 
-            <div class="svc-opt {{ old('service_type')==='printing'?'selected-print':'' }}" onclick="selectService('printing',this)">
+            <div class="svc-opt {{ old('service_type')==='printing' && ($serviceAvailability['printing'] ?? true)?'selected-print':'' }} {{ !($serviceAvailability['printing'] ?? true) ? 'disabled' : '' }}" data-service-option="printing" onclick="selectService('printing',this)">
               <div style="font-size:1.6rem;margin-bottom:8px;color:var(--blue)"><i class="fa-solid fa-print"></i></div>
               <div style="font-size:.85rem;font-weight:800;color:var(--gray800)">Printing</div>
               <div style="font-size:.7rem;color:var(--gray400);margin-top:4px">Document & photo printing</div>
+              <span class="svc-status {{ ($serviceAvailability['printing'] ?? true) ? 'on' : 'off' }}">{{ ($serviceAvailability['printing'] ?? true) ? 'Available' : 'Unavailable' }}</span>
             </div>
 
-            <div class="svc-opt {{ old('service_type')==='photocopy'?'selected-photo':'' }}" onclick="selectService('photocopy',this)">
+            <div class="svc-opt {{ old('service_type')==='photocopy' && ($serviceAvailability['photocopy'] ?? true)?'selected-photo':'' }} {{ !($serviceAvailability['photocopy'] ?? true) ? 'disabled' : '' }}" data-service-option="photocopy" onclick="selectService('photocopy',this)">
               <div style="font-size:1.6rem;margin-bottom:8px;color:var(--orange)"><i class="fa-solid fa-copy"></i></div>
               <div style="font-size:.85rem;font-weight:800;color:var(--gray800)">Photocopy</div>
               <div style="font-size:.7rem;color:var(--gray400);margin-top:4px">Fast copying services</div>
+              <span class="svc-status {{ ($serviceAvailability['photocopy'] ?? true) ? 'on' : 'off' }}">{{ ($serviceAvailability['photocopy'] ?? true) ? 'Available' : 'Unavailable' }}</span>
             </div>
 
             {{-- In step-3, update research option --}}
-            <div class="svc-opt" id="research-svc-opt" onclick="selectService('research',this)">
+            <div class="svc-opt {{ old('service_type')==='research' && ($serviceAvailability['research'] ?? true) ? 'selected-research' : '' }} {{ !($serviceAvailability['research'] ?? true) ? 'disabled' : '' }}" id="research-svc-opt" data-service-option="research" onclick="selectService('research',this)">
                 <div style="font-size:1.6rem;margin-bottom:8px;color:var(--g600)"><i class="fa-solid fa-desktop"></i></div>
                 <div style="font-size:.85rem;font-weight:800;color:var(--gray800)">Research / PC Lab</div>
                 <div style="font-size:.7rem;color:var(--gray400);margin-top:4px" id="research-desc">Computer use (Students & Faculty only)</div>
+                <span class="svc-status {{ ($serviceAvailability['research'] ?? true) ? 'on' : 'off' }}">{{ ($serviceAvailability['research'] ?? true) ? 'Available' : 'Unavailable' }}</span>
             </div>
 
           </div>
@@ -700,6 +715,12 @@ body{background:var(--offwhite)}
 <script>
 let currentRole = '{{ old('role','') }}';
 let currentSvc  = '{{ old('service_type','') }}';
+const serviceAvailability = @json($serviceAvailability);
+if (currentSvc && serviceAvailability[currentSvc] === false) {
+  currentSvc = '';
+  const serviceInput = document.getElementById('svc-input');
+  if (serviceInput) serviceInput.value = '';
+}
 const mainForm = document.getElementById('mainForm');
 let publicSubmissionConfirmed = false;
 let guestDetectedPages = 0;
@@ -782,7 +803,7 @@ function selectRole(role, el) {
     idGroup.style.display = 'block';
     idInput.setAttribute('required','required');
     idLabel.textContent = role === 'student' ? 'Student ID Number' : 'Faculty/Staff ID Number';
-    resOpt.classList.remove('disabled');
+    resOpt.classList.toggle('disabled', serviceAvailability.research === false);
     visNotice.style.display = 'none';
   }
 
@@ -791,6 +812,10 @@ function selectRole(role, el) {
 
 // Service selection
 function selectService(svc, el) {
+  if (serviceAvailability[svc] === false) {
+    alert(`${svc === 'research' ? 'Research / PC Lab' : svc.charAt(0).toUpperCase()+svc.slice(1)} service is currently unavailable.`);
+    return;
+  }
   if (currentRole === 'visitor' && svc === 'research') return;
   currentSvc = svc;
   document.getElementById('svc-input').value = svc;
@@ -888,7 +913,8 @@ async function nextStep(from) {
     }
   }
   if (from === 3) {
-    if (!currentSvc) { alert('Please select a service.'); return; }
+    if (!currentSvc) { alert('Please select an available service.'); return; }
+    if (serviceAvailability[currentSvc] === false) { alert('The selected service is currently unavailable.'); return; }
     updateStep4();
   }
   if (from === 4) {
@@ -1195,13 +1221,20 @@ document.querySelectorAll('.modal-bg').forEach(m => m.addEventListener('click', 
   selectRole('{{ old('role') }}', document.querySelector('.role-opt[onclick*="{{ old('role') }}"]') || document.createElement('div'));
 @endif
 @if(old('service_type'))
-  currentSvc = '{{ old('service_type') }}';
+  if (serviceAvailability['{{ old('service_type') }}'] !== false) {
+    currentSvc = '{{ old('service_type') }}';
+  }
 @endif
 updatePublicSubmitButton();
 @if($errors->any())
-  // Restore to appropriate step on validation error
-  updateStep4();
-  showStep(4);
+  // A disabled service is cleared above. In that case, return the user to the
+  // service-selection step instead of showing an empty service-details step.
+  if (currentSvc) {
+    updateStep4();
+    showStep(4);
+  } else {
+    showStep(3);
+  }
 @else
   showStep(1);
 @endif

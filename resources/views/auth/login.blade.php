@@ -158,35 +158,13 @@
     </div>
 
     <div class="cpr">
-      &copy; {{ date('Y') }} IT Services System. All rights reserved. &nbsp;·&nbsp; v{{ \App\Models\Setting::get('system_version', '1.0.0') }}<br>
-      <i class="fa-solid fa-phone" style="font-size:.6rem"></i> (02) 1234-5678 &nbsp;
-      <i class="fa-solid fa-envelope" style="font-size:.6rem"></i> support@itservices.ph
+      &copy; {{ date('Y') }} IT Center Services System. All rights reserved. &nbsp;·&nbsp; v{{ \App\Models\Setting::get('system_version', '1.0.0') }}<br>
+      <i class="fa-solid fa-envelope" style="font-size:.6rem"></i> itcenter@ucc-caloocan.com
     </div>
   </div>
 </div>
 
-{{-- USER MANUAL & GUIDE MODAL --}}
-<div class="modal-bg" id="userGuideModal">
-  <div class="modal-box" style="max-width:1100px;width:96vw;height:92vh;max-height:92vh">
-    <div class="modal-hd">
-      <h3>
-        <img src="{{ asset('images/icons/user-guide_icon.png') }}" alt="" style="width:18px;height:18px;vertical-align:middle;margin-right:7px;object-fit:contain">
-        User Manual &amp; Guide
-      </h3>
-      <button class="modal-close" onclick="closeModal('userGuideModal')"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <div class="modal-body" style="padding:0;flex:1;display:flex;flex-direction:column;min-height:0">
-      <iframe src="{{ asset('documents/user-manual.pdf') }}#view=FitH" style="width:100%;height:100%;border:none;flex:1"></iframe>
-    </div>
-    <div class="modal-footer">
-      <a href="{{ asset('documents/user-manual.pdf') }}" target="_blank" class="modal-btn secondary"
-         style="text-decoration:none;display:inline-flex;align-items:center;gap:6px">
-        <i class="fa-solid fa-up-right-from-square"></i> Open in New Tab
-      </a>
-      <button type="button" class="modal-btn primary" onclick="closeModal('userGuideModal')">Close</button>
-    </div>
-  </div>
-</div>
+@include('partials.user-guide-modal')
 
 {{-- DEVELOPER MODAL --}}
 <div class="modal-bg" id="developerModal">

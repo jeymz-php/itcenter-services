@@ -5,15 +5,24 @@ use App\Http\Controllers\Controller;
 use App\Models\ServiceRequest;
 use App\Models\Setting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class SettingsController extends Controller
 {
+    private function adminGuard() {
+        if (!session('admin')) abort(403);
+    }
+
     private function superAdminGuard() {
-        if (!session('admin') || session('admin')->role !== 'super_admin') abort(403);
+        $this->adminGuard();
+        if (session('admin')->role !== 'super_admin') abort(403);
     }
 
     public function index() {
-        $this->superAdminGuard();
+        $this->adminGuard();
+
+        $admin = session('admin');
+        $isSuperAdmin = $admin->role === 'super_admin';
 
         $dailyPrintingLimit  = ServiceRequest::dailyPrintingLimit();
         $dailyPhotocopyLimit = ServiceRequest::dailyPhotocopyLimit();
@@ -24,16 +33,62 @@ class SettingsController extends Controller
 
         $systemVersion      = Setting::get('system_version', '1.0.0');
         $systemVersionNotes = Setting::get('system_version_notes', '');
+        $systemVersionUpdatedAt = Setting::get('system_version_updated_at');
+
+        $versionHistory = collect(Setting::versionHistory());
+        if (!$versionHistory->contains(fn ($entry) => ($entry['version'] ?? null) === $systemVersion)) {
+            $versionHistory->prepend([
+                'version'     => $systemVersion,
+                'notes'       => $systemVersionNotes,
+                'released_at' => $systemVersionUpdatedAt,
+                'updated_at'  => $systemVersionUpdatedAt,
+                'updated_by'  => null,
+            ]);
+        }
 
         $maintenanceMode    = Setting::get('system_maintenance_mode', '0') === '1';
         $maintenanceMessage = Setting::get('system_maintenance_message', 'The system is currently undergoing scheduled maintenance. Please check back soon.');
 
+        $serviceAvailability = Setting::serviceAvailability();
+
         return view('admin.settings.index', compact(
+            'admin', 'isSuperAdmin',
             'dailyPrintingLimit', 'dailyPhotocopyLimit', 'dailyResearchLimit',
             'systemOpenTime', 'systemCloseTime',
-            'systemVersion', 'systemVersionNotes',
-            'maintenanceMode', 'maintenanceMessage'
+            'systemVersion', 'systemVersionNotes', 'versionHistory',
+            'maintenanceMode', 'maintenanceMessage',
+            'serviceAvailability'
         ));
+    }
+
+    public function updateServices(Request $request) {
+        $this->adminGuard();
+
+        DB::transaction(function () use ($request) {
+            foreach (['printing', 'photocopy', 'research'] as $service) {
+                Setting::setServiceAvailability($service, $request->boolean("service_{$service}_enabled"));
+            }
+        });
+
+        $available = collect(Setting::serviceAvailability())
+            ->filter()
+            ->keys()
+            ->map(fn ($service) => Setting::serviceLabel($service));
+
+        $unavailable = collect(Setting::serviceAvailability())
+            ->reject()
+            ->keys()
+            ->map(fn ($service) => Setting::serviceLabel($service));
+
+        $message = 'Service availability updated.';
+        if ($available->isNotEmpty()) {
+            $message .= ' Available: ' . $available->join(', ') . '.';
+        }
+        if ($unavailable->isNotEmpty()) {
+            $message .= ' Unavailable: ' . $unavailable->join(', ') . '.';
+        }
+
+        return back()->with('success', $message);
     }
 
     public function update(Request $request) {
@@ -74,15 +129,40 @@ class SettingsController extends Controller
             'system_version_notes' => 'nullable|string|max:2000',
         ]);
 
-        $previous = Setting::get('system_version');
+        $previousVersion = Setting::get('system_version', '1.0.0');
+        $previousNotes = Setting::get('system_version_notes', '');
+        $previousReleasedAt = Setting::get('system_version_updated_at') ?: now()->toIso8601String();
+        $adminIdentifier = session('admin')->admin_id ?? session('admin')->email ?? 'Administrator';
 
-        Setting::set('system_version', $request->system_version);
-        Setting::set('system_version_notes', $request->system_version_notes ?? '');
+        $newVersion = trim($request->system_version);
+        $newNotes = trim((string) ($request->system_version_notes ?? ''));
+        $releasedAt = $previousVersion === $newVersion
+            ? $previousReleasedAt
+            : now()->toIso8601String();
+
+        DB::transaction(function () use (
+            $previousVersion, $previousNotes, $previousReleasedAt,
+            $newVersion, $newNotes, $releasedAt, $adminIdentifier
+        ) {
+            // Preserve the current version before replacing it so it becomes
+            // part of the permanent previous-version history.
+            Setting::saveVersionLog(
+                $previousVersion,
+                $previousNotes,
+                $previousReleasedAt,
+                $adminIdentifier
+            );
+
+            Setting::set('system_version', $newVersion);
+            Setting::set('system_version_notes', $newNotes);
+            Setting::set('system_version_updated_at', $releasedAt);
+            Setting::saveVersionLog($newVersion, $newNotes, $releasedAt, $adminIdentifier);
+        });
 
         return back()->with('success',
-            $previous !== $request->system_version
-                ? "Version updated to {$request->system_version}. Users will see the update notice next time they log in."
-                : "Version notes updated."
+            $previousVersion !== $newVersion
+                ? "Version updated to {$newVersion}. Users will see the update notice next time they open the user portal."
+                : 'Version notes and update history were updated.'
         );
     }
 

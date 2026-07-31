@@ -5,6 +5,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ServiceRequest;
 use App\Models\InventoryItem;
 use App\Models\AdminNotification;
+use App\Models\Setting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -77,12 +78,16 @@ class ServiceRequestController extends Controller
         $pageLimit      = ServiceRequest::dailyPrintingLimit();
         $pagesUsed      = ServiceRequest::printingPagesUsedToday(Auth::id());
         $pagesRemaining = ServiceRequest::printingPagesRemainingToday(Auth::id());
-        return view('user.requests.printing', compact('serviceRequest','paperSizes','pageLimit','pagesUsed','pagesRemaining'));
+        $serviceAvailable = Setting::isServiceAvailable('printing');
+        return view('user.requests.printing', compact('serviceRequest','paperSizes','pageLimit','pagesUsed','pagesRemaining','serviceAvailable'));
     }
 
     public function storePrinting(Request $request) {
-        if (!\App\Models\Setting::isWithinSystemHours()) {
-            return back()->withErrors(['error' => 'The IT Center is currently closed. Requests can only be submitted between ' . \App\Models\Setting::systemHoursLabel() . '.'])->withInput();
+        if (!Setting::isServiceAvailable('printing')) {
+            return back()->withErrors(['error' => Setting::serviceUnavailableMessage('printing')])->withInput();
+        }
+        if (!Setting::isWithinSystemHours()) {
+            return back()->withErrors(['error' => 'The IT Center is currently closed. Requests can only be submitted between ' . Setting::systemHoursLabel() . '.'])->withInput();
         }
 
         $request->validate([
@@ -156,6 +161,12 @@ class ServiceRequestController extends Controller
             abort(404);
         }
 
+        if (!Setting::isServiceAvailable('printing')) {
+            return redirect()->route('requests.history')->withErrors([
+                'error' => Setting::serviceUnavailableMessage('printing'),
+            ]);
+        }
+
         if ($serviceRequest->status !== 'pending') {
             return redirect()->route('requests.history')->withErrors([
                 'error' => 'Only pending printing requests can be edited. This request is already ' . $serviceRequest->status . '.',
@@ -167,7 +178,8 @@ class ServiceRequestController extends Controller
         $pagesUsed      = ServiceRequest::printingPagesUsedToday(Auth::id(), $serviceRequest->id);
         $pagesRemaining = ServiceRequest::printingPagesRemainingToday(Auth::id(), $serviceRequest->id);
 
-        return view('user.requests.printing', compact('serviceRequest','paperSizes','pageLimit','pagesUsed','pagesRemaining'));
+        $serviceAvailable = Setting::isServiceAvailable('printing');
+        return view('user.requests.printing', compact('serviceRequest','paperSizes','pageLimit','pagesUsed','pagesRemaining','serviceAvailable'));
     }
 
     public function updatePrinting(Request $request, ServiceRequest $serviceRequest) {
@@ -177,6 +189,12 @@ class ServiceRequestController extends Controller
 
         if ($serviceRequest->service_type !== 'printing') {
             abort(404);
+        }
+
+        if (!Setting::isServiceAvailable('printing')) {
+            return redirect()->route('requests.history')->withErrors([
+                'error' => Setting::serviceUnavailableMessage('printing'),
+            ]);
         }
 
         if ($serviceRequest->status !== 'pending') {
@@ -283,12 +301,16 @@ class ServiceRequestController extends Controller
         $pageLimit      = ServiceRequest::dailyPhotocopyLimit();
         $pagesUsed      = ServiceRequest::photocopyPagesUsedToday(Auth::id());
         $pagesRemaining = ServiceRequest::photocopyPagesRemainingToday(Auth::id());
-        return view('user.requests.photocopy', compact('paperSizes','pageLimit','pagesUsed','pagesRemaining'));
+        $serviceAvailable = Setting::isServiceAvailable('photocopy');
+        return view('user.requests.photocopy', compact('paperSizes','pageLimit','pagesUsed','pagesRemaining','serviceAvailable'));
     }
 
     public function storePhotocopy(Request $request) {
-        if (!\App\Models\Setting::isWithinSystemHours()) {
-            return back()->withErrors(['error' => 'The IT Center is currently closed. Requests can only be submitted between ' . \App\Models\Setting::systemHoursLabel() . '.'])->withInput();
+        if (!Setting::isServiceAvailable('photocopy')) {
+            return back()->withErrors(['error' => Setting::serviceUnavailableMessage('photocopy')])->withInput();
+        }
+        if (!Setting::isWithinSystemHours()) {
+            return back()->withErrors(['error' => 'The IT Center is currently closed. Requests can only be submitted between ' . Setting::systemHoursLabel() . '.'])->withInput();
         }
 
         $request->validate([
@@ -335,15 +357,19 @@ class ServiceRequestController extends Controller
         $minutesUsed      = ServiceRequest::minutesUsedToday(Auth::id());
         $minutesRemaining = ServiceRequest::minutesRemainingToday(Auth::id());
         $researchRestricted = Auth::user()->research_restricted;
-        return view('user.requests.research', compact('durations','minutesLimit','minutesUsed','minutesRemaining','researchRestricted'));
+        $serviceAvailable = Setting::isServiceAvailable('research');
+        return view('user.requests.research', compact('durations','minutesLimit','minutesUsed','minutesRemaining','researchRestricted','serviceAvailable'));
     }
 
     public function storeResearch(Request $request) {
+        if (!Setting::isServiceAvailable('research')) {
+            return back()->withErrors(['error' => Setting::serviceUnavailableMessage('research')])->withInput();
+        }
         if (Auth::user()->research_restricted) {
             return back()->withErrors(['error' => 'Your access to Research/PC-Lab requests has been restricted by an IT Center administrator. Contact the IT Center for details.']);
         }
-        if (!\App\Models\Setting::isWithinSystemHours()) {
-            return back()->withErrors(['error' => 'The IT Center is currently closed. Requests can only be submitted between ' . \App\Models\Setting::systemHoursLabel() . '.']);
+        if (!Setting::isWithinSystemHours()) {
+            return back()->withErrors(['error' => 'The IT Center is currently closed. Requests can only be submitted between ' . Setting::systemHoursLabel() . '.']);
         }
 
         $request->validate([

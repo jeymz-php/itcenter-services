@@ -24,16 +24,19 @@ class ServiceRequestController extends Controller
         return response()->json([
             'usage' => [
                 'printing' => [
+                    'available' => Setting::isServiceAvailable('printing'),
                     'limit'     => ServiceRequest::dailyPrintingLimit(),
                     'used'      => ServiceRequest::printingPagesUsedToday($user->id),
                     'remaining' => ServiceRequest::printingPagesRemainingToday($user->id),
                 ],
                 'photocopy' => [
+                    'available' => Setting::isServiceAvailable('photocopy'),
                     'limit'     => ServiceRequest::dailyPhotocopyLimit(),
                     'used'      => ServiceRequest::photocopyPagesUsedToday($user->id),
                     'remaining' => ServiceRequest::photocopyPagesRemainingToday($user->id),
                 ],
                 'research' => [
+                    'available'  => Setting::isServiceAvailable('research'),
                     'limit'      => ServiceRequest::dailyResearchLimit(),
                     'used'       => ServiceRequest::minutesUsedToday($user->id),
                     'remaining'  => ServiceRequest::minutesRemainingToday($user->id),
@@ -43,6 +46,7 @@ class ServiceRequestController extends Controller
             'system' => [
                 'open_now'    => Setting::isWithinSystemHours(),
                 'hours_label' => Setting::systemHoursLabel(),
+                'services'    => Setting::serviceAvailability(),
             ],
             'active_session' => $activeSession ? [
                 'request_number'   => $activeSession->serviceRequest->request_number,
@@ -65,6 +69,7 @@ class ServiceRequestController extends Controller
     public function printingOptions() {
         $user = Auth::user();
         return response()->json([
+            'available'   => Setting::isServiceAvailable('printing'),
             'paper_sizes' => InventoryItem::paperSizes($user->campus),
             'limit'       => ServiceRequest::dailyPrintingLimit(),
             'used'        => ServiceRequest::printingPagesUsedToday($user->id),
@@ -73,6 +78,9 @@ class ServiceRequestController extends Controller
     }
 
     public function storePrinting(Request $request) {
+        if (!Setting::isServiceAvailable('printing')) {
+            return response()->json(['message' => Setting::serviceUnavailableMessage('printing')], 422);
+        }
         if (!Setting::isWithinSystemHours()) {
             return response()->json(['message' => 'The IT Center is currently closed. Requests can only be submitted between ' . Setting::systemHoursLabel() . '.'], 422);
         }
@@ -129,6 +137,7 @@ class ServiceRequestController extends Controller
     public function photocopyOptions() {
         $user = Auth::user();
         return response()->json([
+            'available'   => Setting::isServiceAvailable('photocopy'),
             'paper_sizes' => InventoryItem::paperSizes($user->campus),
             'limit'       => ServiceRequest::dailyPhotocopyLimit(),
             'used'        => ServiceRequest::photocopyPagesUsedToday($user->id),
@@ -137,6 +146,9 @@ class ServiceRequestController extends Controller
     }
 
     public function storePhotocopy(Request $request) {
+        if (!Setting::isServiceAvailable('photocopy')) {
+            return response()->json(['message' => Setting::serviceUnavailableMessage('photocopy')], 422);
+        }
         if (!Setting::isWithinSystemHours()) {
             return response()->json(['message' => 'The IT Center is currently closed. Requests can only be submitted between ' . Setting::systemHoursLabel() . '.'], 422);
         }
@@ -180,6 +192,7 @@ class ServiceRequestController extends Controller
     public function researchOptions() {
         $user = Auth::user();
         return response()->json([
+            'available'  => Setting::isServiceAvailable('research'),
             'durations'  => InventoryItem::pcDurations($user->campus),
             'limit'      => ServiceRequest::dailyResearchLimit(),
             'used'       => ServiceRequest::minutesUsedToday($user->id),
@@ -189,6 +202,9 @@ class ServiceRequestController extends Controller
     }
 
     public function storeResearch(Request $request) {
+        if (!Setting::isServiceAvailable('research')) {
+            return response()->json(['message' => Setting::serviceUnavailableMessage('research')], 422);
+        }
         if (Auth::user()->research_restricted) {
             return response()->json(['message' => 'Your access to Research/PC-Lab requests has been restricted by an IT Center administrator. Contact the IT Center for details.'], 403);
         }
@@ -271,6 +287,10 @@ class ServiceRequestController extends Controller
     }
 
     public function detectPages(Request $request) {
+        if (!Setting::isServiceAvailable('printing')) {
+            return response()->json(['message' => Setting::serviceUnavailableMessage('printing')], 422);
+        }
+
         $request->validate([
             'file' => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240',
         ]);

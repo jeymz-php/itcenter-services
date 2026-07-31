@@ -2,8 +2,6 @@
 @section('title','Dashboard | IT Center Services')
 @section('body-class','dash-page')
 @section('content')
-@include('partials.version-modal')
-
 @php
   $user = Auth::user();
   $stats = [
@@ -26,6 +24,8 @@
   $minutesLimit      = \App\Models\ServiceRequest::dailyResearchLimit();
   $minutesUsedToday    = \App\Models\ServiceRequest::minutesUsedToday($user->id);
   $minutesRemainingToday = \App\Models\ServiceRequest::minutesRemainingToday($user->id);
+  $serviceAvailability = \App\Models\Setting::serviceAvailability();
+  $unavailableServices = collect($serviceAvailability)->reject()->keys()->map(fn($service) => \App\Models\Setting::serviceLabel($service));
 @endphp
 
 <div class="dash-wrap">
@@ -55,6 +55,13 @@
       @if(session('success'))
         <div class="abox ok" style="margin-bottom:16px">
           <i class="fa-solid fa-circle-check"></i> {{ session('success') }}
+        </div>
+      @endif
+
+      @if($errors->any())
+        <div class="abox err" style="margin-bottom:16px">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <div>@foreach($errors->all() as $error)<div>{{ $error }}</div>@endforeach</div>
         </div>
       @endif
 
@@ -119,6 +126,13 @@
 
       {{-- ── ACTIVE DASHBOARD ── --}}
       @else
+
+      @if($unavailableServices->isNotEmpty())
+      <div class="abox warn" style="margin-bottom:16px">
+        <i class="fa-solid fa-circle-exclamation"></i>
+        <div><strong>Temporarily unavailable:</strong> {{ $unavailableServices->join(', ') }}. Existing requests remain visible. Please review the User Manual or Infographics and check again later.</div>
+      </div>
+      @endif
 
       {{-- ACTIVE PC SESSION BANNER --}}
       @if($activeSession)
@@ -326,17 +340,20 @@
 
       {{-- QUICK ACTIONS --}}
       <div class="qa-grid" style="margin-bottom:20px">
-        <a href="{{ route('requests.printing') }}" class="qa-card" style="border-color:var(--blue-bg)">
+        <a href="{{ route('requests.printing') }}" class="qa-card" style="border-color:var(--blue-bg);{{ !($serviceAvailability['printing'] ?? true) ? 'opacity:.55' : '' }}">
           <div class="qa-ico" style="color:var(--blue)"><i class="fa-solid fa-print"></i></div>
           <div class="qa-lbl" style="color:var(--blue)">Printing</div>
+          @if(!($serviceAvailability['printing'] ?? true))<span class="tag tag-rej" style="font-size:.58rem">Unavailable</span>@endif
         </a>
-        <a href="{{ route('requests.photocopy') }}" class="qa-card" style="border-color:var(--orange-bg)">
+        <a href="{{ route('requests.photocopy') }}" class="qa-card" style="border-color:var(--orange-bg);{{ !($serviceAvailability['photocopy'] ?? true) ? 'opacity:.55' : '' }}">
           <div class="qa-ico" style="color:var(--orange)"><i class="fa-solid fa-copy"></i></div>
           <div class="qa-lbl" style="color:var(--orange)">Photocopy</div>
+          @if(!($serviceAvailability['photocopy'] ?? true))<span class="tag tag-rej" style="font-size:.58rem">Unavailable</span>@endif
         </a>
-        <a href="{{ route('requests.research') }}" class="qa-card" style="border-color:var(--g100)">
+        <a href="{{ route('requests.research') }}" class="qa-card" style="border-color:var(--g100);{{ !($serviceAvailability['research'] ?? true) ? 'opacity:.55' : '' }}">
           <div class="qa-ico" style="color:var(--g600)"><i class="fa-solid fa-desktop"></i></div>
           <div class="qa-lbl" style="color:var(--g600)">Research</div>
+          @if(!($serviceAvailability['research'] ?? true))<span class="tag tag-rej" style="font-size:.58rem">Unavailable</span>@endif
         </a>
         <a href="{{ route('requests.history') }}" class="qa-card" style="border-color:var(--orange-bg)">
           <div class="qa-ico" style="color:#b86a00"><i class="fa-solid fa-clock-rotate-left"></i></div>

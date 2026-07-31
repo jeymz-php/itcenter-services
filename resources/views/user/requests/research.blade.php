@@ -89,6 +89,13 @@
     </div>
   @endif
 
+  @if(!$serviceAvailable)
+    <div class="abox err" style="margin-bottom:16px">
+      <i class="fa-solid fa-circle-xmark"></i>
+      <div><strong>Research / PC Lab service is currently unavailable for new requests.</strong><br>Any active session remains visible below. Please review the User Manual or Infographics and check again later.</div>
+    </div>
+  @endif
+
   {{-- ── ACTIVE SESSION VIEW ── --}}
   @if($activeSession)
   <div style="background:var(--white);border-radius:16px;box-shadow:var(--shadow-sm);border:1.5px solid var(--g300);overflow:hidden;margin-bottom:16px">
@@ -293,7 +300,7 @@
         </label>
       </div>
 
-      <button type="submit" class="btn">
+      <button type="submit" class="btn" style="{{ !$serviceAvailable ? 'opacity:.55;cursor:not-allowed' : '' }}" {{ !$serviceAvailable ? 'disabled' : '' }}>
         <i class="fa-solid fa-paper-plane"></i> Submit Research Request
       </button>
     </form>

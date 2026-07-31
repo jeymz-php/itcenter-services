@@ -3,8 +3,6 @@
 @section('body-class','dash-page')
 @section('content')
 
-@include('partials.version-modal')
-
 @php $user = Auth::user(); @endphp
 
 {{-- EDIT PROFILE MODAL --}}
