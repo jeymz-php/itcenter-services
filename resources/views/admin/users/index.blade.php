@@ -232,6 +232,9 @@
       @if(session('success'))
         <div class="abox ok" style="margin-bottom:14px"><i class="fa-solid fa-circle-check"></i> {{ session('success') }}</div>
       @endif
+      @if(session('warning'))
+        <div class="abox warn" style="margin-bottom:14px"><i class="fa-solid fa-triangle-exclamation"></i> {{ session('warning') }}</div>
+      @endif
       @if($errors->any())
         <div class="abox err" style="margin-bottom:14px"><i class="fa-solid fa-triangle-exclamation"></i> {{ $errors->first() }}</div>
       @endif

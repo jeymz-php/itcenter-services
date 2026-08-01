@@ -45,7 +45,9 @@ class ServiceRequestController extends Controller
             ],
             'system' => [
                 'open_now'    => Setting::isWithinSystemHours(),
-                'hours_label' => Setting::systemHoursLabel(),
+                'hours_label' => Setting::todayHoursLabel(),
+                'today'       => Setting::todaySchedule(),
+                'schedule'    => Setting::operatingSchedule(),
                 'services'    => Setting::serviceAvailability(),
             ],
             'active_session' => $activeSession ? [
@@ -82,7 +84,7 @@ class ServiceRequestController extends Controller
             return response()->json(['message' => Setting::serviceUnavailableMessage('printing')], 422);
         }
         if (!Setting::isWithinSystemHours()) {
-            return response()->json(['message' => 'The IT Center is currently closed. Requests can only be submitted between ' . Setting::systemHoursLabel() . '.'], 422);
+            return response()->json(['message' => Setting::closedMessage(), 'today' => Setting::todaySchedule()], 422);
         }
 
         $request->validate([
@@ -150,7 +152,7 @@ class ServiceRequestController extends Controller
             return response()->json(['message' => Setting::serviceUnavailableMessage('photocopy')], 422);
         }
         if (!Setting::isWithinSystemHours()) {
-            return response()->json(['message' => 'The IT Center is currently closed. Requests can only be submitted between ' . Setting::systemHoursLabel() . '.'], 422);
+            return response()->json(['message' => Setting::closedMessage(), 'today' => Setting::todaySchedule()], 422);
         }
 
         $request->validate([
@@ -209,7 +211,7 @@ class ServiceRequestController extends Controller
             return response()->json(['message' => 'Your access to Research/PC-Lab requests has been restricted by an IT Center administrator. Contact the IT Center for details.'], 403);
         }
         if (!Setting::isWithinSystemHours()) {
-            return response()->json(['message' => 'The IT Center is currently closed. Requests can only be submitted between ' . Setting::systemHoursLabel() . '.'], 422);
+            return response()->json(['message' => Setting::closedMessage(), 'today' => Setting::todaySchedule()], 422);
         }
 
         $request->validate([

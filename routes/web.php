@@ -52,6 +52,8 @@ Route::middleware('auth')->group(function () {
     Route::put('/requests/{serviceRequest}/printing',      [ServiceRequestController::class, 'updatePrinting'])->name('requests.printing.update');
     Route::get('/requests/photocopy',  [ServiceRequestController::class, 'photocopy'])->name('requests.photocopy');
     Route::post('/requests/photocopy', [ServiceRequestController::class, 'storePhotocopy'])->name('requests.photocopy.store');
+    Route::get('/requests/{serviceRequest}/photocopy/edit', [ServiceRequestController::class, 'editPhotocopy'])->name('requests.photocopy.edit');
+    Route::put('/requests/{serviceRequest}/photocopy',      [ServiceRequestController::class, 'updatePhotocopy'])->name('requests.photocopy.update');
     Route::get('/requests/research',   [ServiceRequestController::class, 'research'])->name('requests.research');
     Route::post('/requests/research',  [ServiceRequestController::class, 'storeResearch'])->name('requests.research.store');
     Route::get('/requests/history',    [ServiceRequestController::class, 'history'])->name('requests.history');
@@ -59,6 +61,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/requests/{serviceRequest}/file',    [ServiceRequestController::class, 'openFile'])->name('requests.file');
     Route::post('/requests/{serviceRequest}/request-extend', [ServiceRequestController::class, 'requestExtend'])->name('requests.request-extend');
     Route::post('/ratings', [App\Http\Controllers\User\RatingController::class, 'store'])->name('ratings.store');
+    Route::post('/ratings/{serviceRequest}/dismiss', [App\Http\Controllers\User\RatingController::class, 'dismiss'])->name('ratings.dismiss');
 
     // Messages
     Route::get('/messages',              [App\Http\Controllers\User\MessageController::class, 'index'])->name('user.messages.index');

@@ -15,9 +15,14 @@ class ServiceRequest extends Model
         'file_path','file_name','detected_pages','print_type','print_sides',
         'document_type','duration_minutes','computer_id',
         'reviewed_by','reviewed_at','admin_note','total_price',
+        'rating_prompted_at','rating_dismissed_at',
     ];
 
-    protected $casts = ['reviewed_at' => 'datetime'];
+    protected $casts = [
+        'reviewed_at' => 'datetime',
+        'rating_prompted_at' => 'datetime',
+        'rating_dismissed_at' => 'datetime',
+    ];
 
     public function user()  { return $this->belongsTo(User::class); }
     public function admin() { return $this->belongsTo(Admin::class, 'reviewed_by'); }
@@ -87,16 +92,21 @@ class ServiceRequest extends Model
         return max(0, self::dailyPrintingLimit() - self::printingPagesUsedToday($userId, $excludeRequestId));
     }
 
-    public static function photocopyPagesUsedToday(int $userId): int {
-        return (int) static::where('user_id', $userId)
+    public static function photocopyPagesUsedToday(int $userId, ?int $excludeRequestId = null): int {
+        $query = static::where('user_id', $userId)
             ->where('service_type', 'photocopy')
             ->whereNotIn('status', ['rejected', 'cancelled'])
-            ->where('created_at', '>=', now()->startOfDay())
-            ->sum('copies');
+            ->where('created_at', '>=', now()->startOfDay());
+
+        if ($excludeRequestId !== null) {
+            $query->where('id', '!=', $excludeRequestId);
+        }
+
+        return (int) $query->sum('copies');
     }
 
-    public static function photocopyPagesRemainingToday(int $userId): int {
-        return max(0, self::dailyPhotocopyLimit() - self::photocopyPagesUsedToday($userId));
+    public static function photocopyPagesRemainingToday(int $userId, ?int $excludeRequestId = null): int {
+        return max(0, self::dailyPhotocopyLimit() - self::photocopyPagesUsedToday($userId, $excludeRequestId));
     }
 
     public static function minutesUsedToday(int $userId): int {

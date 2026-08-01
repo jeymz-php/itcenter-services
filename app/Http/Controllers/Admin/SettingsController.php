@@ -28,8 +28,7 @@ class SettingsController extends Controller
         $dailyPhotocopyLimit = ServiceRequest::dailyPhotocopyLimit();
         $dailyResearchLimit  = ServiceRequest::dailyResearchLimit();
 
-        $systemOpenTime  = Setting::get('system_open_time', '07:00');
-        $systemCloseTime = Setting::get('system_close_time', '21:30');
+        $operatingSchedule = Setting::operatingSchedule();
 
         $systemVersion      = Setting::get('system_version', '1.0.0');
         $systemVersionNotes = Setting::get('system_version_notes', '');
@@ -54,7 +53,7 @@ class SettingsController extends Controller
         return view('admin.settings.index', compact(
             'admin', 'isSuperAdmin',
             'dailyPrintingLimit', 'dailyPhotocopyLimit', 'dailyResearchLimit',
-            'systemOpenTime', 'systemCloseTime',
+            'operatingSchedule',
             'systemVersion', 'systemVersionNotes', 'versionHistory',
             'maintenanceMode', 'maintenanceMessage',
             'serviceAvailability'
@@ -110,15 +109,36 @@ class SettingsController extends Controller
     public function updateHours(Request $request) {
         $this->superAdminGuard();
 
-        $request->validate([
-            'system_open_time'  => 'required|date_format:H:i',
-            'system_close_time' => 'required|date_format:H:i',
-        ]);
+        $defaults = Setting::defaultOperatingSchedule();
+        $rules = [];
+        foreach (array_keys($defaults) as $day) {
+            $rules["operating_schedule.{$day}.open"] = 'required|date_format:H:i';
+            $rules["operating_schedule.{$day}.close"] = 'required|date_format:H:i';
+        }
+        $request->validate($rules);
 
-        Setting::set('system_open_time', $request->system_open_time);
-        Setting::set('system_close_time', $request->system_close_time);
+        $schedule = [];
+        foreach ($defaults as $day => $default) {
+            $open = (string) $request->input("operating_schedule.{$day}.open", $default['open']);
+            $close = (string) $request->input("operating_schedule.{$day}.close", $default['close']);
+            $enabled = $request->boolean("operating_schedule.{$day}.enabled");
 
-        return back()->with('success', 'System hours updated.');
+            if ($enabled && $close <= $open) {
+                return back()->withErrors([
+                    "operating_schedule.{$day}.close" => ucfirst($day) . ' closing time must be later than its opening time.',
+                ])->withInput();
+            }
+
+            $schedule[$day] = [
+                'enabled' => $enabled,
+                'open'    => $open,
+                'close'   => $close,
+            ];
+        }
+
+        Setting::setOperatingSchedule($schedule);
+
+        return back()->with('success', 'IT Center weekly operating schedule updated successfully.');
     }
 
     public function updateVersion(Request $request) {

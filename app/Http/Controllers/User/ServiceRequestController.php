@@ -87,7 +87,7 @@ class ServiceRequestController extends Controller
             return back()->withErrors(['error' => Setting::serviceUnavailableMessage('printing')])->withInput();
         }
         if (!Setting::isWithinSystemHours()) {
-            return back()->withErrors(['error' => 'The IT Center is currently closed. Requests can only be submitted between ' . Setting::systemHoursLabel() . '.'])->withInput();
+            return back()->withErrors(['error' => Setting::closedMessage()])->withInput();
         }
 
         $request->validate([
@@ -297,12 +297,13 @@ class ServiceRequestController extends Controller
     }
 
     public function photocopy() {
+        $serviceRequest = null;
         $paperSizes = InventoryItem::paperSizes(Auth::user()->campus);
         $pageLimit      = ServiceRequest::dailyPhotocopyLimit();
         $pagesUsed      = ServiceRequest::photocopyPagesUsedToday(Auth::id());
         $pagesRemaining = ServiceRequest::photocopyPagesRemainingToday(Auth::id());
         $serviceAvailable = Setting::isServiceAvailable('photocopy');
-        return view('user.requests.photocopy', compact('paperSizes','pageLimit','pagesUsed','pagesRemaining','serviceAvailable'));
+        return view('user.requests.photocopy', compact('serviceRequest','paperSizes','pageLimit','pagesUsed','pagesRemaining','serviceAvailable'));
     }
 
     public function storePhotocopy(Request $request) {
@@ -310,7 +311,7 @@ class ServiceRequestController extends Controller
             return back()->withErrors(['error' => Setting::serviceUnavailableMessage('photocopy')])->withInput();
         }
         if (!Setting::isWithinSystemHours()) {
-            return back()->withErrors(['error' => 'The IT Center is currently closed. Requests can only be submitted between ' . Setting::systemHoursLabel() . '.'])->withInput();
+            return back()->withErrors(['error' => Setting::closedMessage()])->withInput();
         }
 
         $request->validate([
@@ -320,7 +321,6 @@ class ServiceRequestController extends Controller
             'terms'      => 'accepted',
         ]);
 
-        // Daily photocopy page limit — students/faculty only
         $copies    = (int) $request->copies;
         $pageLimit = ServiceRequest::dailyPhotocopyLimit();
         $remaining = ServiceRequest::photocopyPagesRemainingToday(Auth::id());
@@ -351,6 +351,100 @@ class ServiceRequestController extends Controller
                ->with('success', "Photocopy request {$sr->request_number} submitted!");
     }
 
+    public function editPhotocopy(ServiceRequest $serviceRequest) {
+        if ($serviceRequest->user_id !== Auth::id()) {
+            abort(403);
+        }
+        if ($serviceRequest->service_type !== 'photocopy') {
+            abort(404);
+        }
+        if (!Setting::isServiceAvailable('photocopy')) {
+            return redirect()->route('requests.history')->withErrors([
+                'error' => Setting::serviceUnavailableMessage('photocopy'),
+            ]);
+        }
+        if ($serviceRequest->status !== 'pending') {
+            return redirect()->route('requests.history')->withErrors([
+                'error' => 'Only pending photocopy requests can be edited. This request is already ' . $serviceRequest->status . '.',
+            ]);
+        }
+
+        $paperSizes = InventoryItem::paperSizes(Auth::user()->campus);
+        $pageLimit      = ServiceRequest::dailyPhotocopyLimit();
+        $pagesUsed      = ServiceRequest::photocopyPagesUsedToday(Auth::id(), $serviceRequest->id);
+        $pagesRemaining = ServiceRequest::photocopyPagesRemainingToday(Auth::id(), $serviceRequest->id);
+        $serviceAvailable = Setting::isServiceAvailable('photocopy');
+
+        return view('user.requests.photocopy', compact('serviceRequest','paperSizes','pageLimit','pagesUsed','pagesRemaining','serviceAvailable'));
+    }
+
+    public function updatePhotocopy(Request $request, ServiceRequest $serviceRequest) {
+        if ($serviceRequest->user_id !== Auth::id()) {
+            abort(403);
+        }
+        if ($serviceRequest->service_type !== 'photocopy') {
+            abort(404);
+        }
+        if (!Setting::isServiceAvailable('photocopy')) {
+            return redirect()->route('requests.history')->withErrors([
+                'error' => Setting::serviceUnavailableMessage('photocopy'),
+            ]);
+        }
+        if ($serviceRequest->status !== 'pending') {
+            return redirect()->route('requests.history')->withErrors([
+                'error' => 'This photocopy request can no longer be edited because its status is ' . $serviceRequest->status . '.',
+            ]);
+        }
+
+        $request->validate([
+            'paper_size' => 'required|string',
+            'copies'     => 'required|integer|min:1|max:100',
+            'purpose'    => 'required|string|max:500',
+            'terms'      => 'accepted',
+        ]);
+
+        $copies    = (int) $request->copies;
+        $pageLimit = ServiceRequest::dailyPhotocopyLimit();
+        $available = ServiceRequest::photocopyPagesRemainingToday(Auth::id(), $serviceRequest->id);
+
+        if ($copies > $available) {
+            return back()->withErrors([
+                'error' => $available > 0
+                    ? "The updated request needs {$copies} page(s), but only {$available} page(s) are available within your daily {$pageLimit}-page photocopy limit."
+                    : "You've reached your daily {$pageLimit}-page photocopy limit. It resets at 12:00 AM.",
+            ])->withInput();
+        }
+
+        // Atomic pending-status condition prevents a user from saving stale
+        // edits after an administrator has already changed the request status.
+        $updated = ServiceRequest::query()
+            ->whereKey($serviceRequest->id)
+            ->where('user_id', Auth::id())
+            ->where('service_type', 'photocopy')
+            ->where('status', 'pending')
+            ->update([
+                'paper_size' => $request->paper_size,
+                'copies'     => $copies,
+                'purpose'    => $request->purpose,
+            ]);
+
+        if ($updated !== 1) {
+            return redirect()->route('requests.history')->withErrors([
+                'error' => 'This photocopy request can no longer be edited because its status changed from pending.',
+            ]);
+        }
+
+        $serviceRequest->refresh();
+        AdminNotification::notify(
+            'updated_photocopy_request', 'Photocopy Request Updated',
+            Auth::user()->full_name." updated pending photocopy request ({$serviceRequest->request_number}).",
+            Auth::user(), route('admin.service-requests.show', $serviceRequest), 'fa-pen-to-square'
+        );
+
+        return redirect()->route('requests.history')
+            ->with('success', "Photocopy request {$serviceRequest->request_number} updated successfully.");
+    }
+
     public function research() {
         $durations = InventoryItem::pcDurations(Auth::user()->campus);
         $minutesLimit     = ServiceRequest::dailyResearchLimit();
@@ -369,7 +463,7 @@ class ServiceRequestController extends Controller
             return back()->withErrors(['error' => 'Your access to Research/PC-Lab requests has been restricted by an IT Center administrator. Contact the IT Center for details.']);
         }
         if (!Setting::isWithinSystemHours()) {
-            return back()->withErrors(['error' => 'The IT Center is currently closed. Requests can only be submitted between ' . Setting::systemHoursLabel() . '.']);
+            return back()->withErrors(['error' => Setting::closedMessage()])->withInput();
         }
 
         $request->validate([

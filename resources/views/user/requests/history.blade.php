@@ -151,6 +151,13 @@
         </a>
         @endif
 
+        @if($r->service_type === 'photocopy' && $r->status === 'pending')
+        <a href="{{ route('requests.photocopy.edit', $r) }}"
+          style="background:var(--orange-bg);color:var(--orange);border:1.5px solid #ffcc80;border-radius:8px;padding:7px 14px;font-size:.75rem;font-weight:700;display:flex;align-items:center;gap:5px;white-space:nowrap;text-decoration:none">
+          <i class="fa-solid fa-pen-to-square"></i> Edit Request
+        </a>
+        @endif
+
         <a href="{{ route('requests.report', $r->id) }}" target="_blank"
           style="background:var(--white);color:var(--g700);border:1.5px solid var(--g300);border-radius:8px;padding:7px 14px;font-size:.75rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;white-space:nowrap;text-decoration:none">
           <i class="fa-solid fa-file-pdf"></i> Generate Receipt

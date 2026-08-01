@@ -1,6 +1,6 @@
 @php
   $user = Auth::user();
-  $serviceAvailability = \App\Models\Setting::serviceAvailability();
+  $serviceAvailability = $serviceAvailability ?? \App\Models\Setting::serviceAvailability();
 @endphp
 <aside class="sidebar">
   <div class="sb-brand">
@@ -40,12 +40,12 @@
       <span class="sb-badge">{{ ucfirst(str_replace('_',' ',$user->user_type)) }}</span>
       @if($user->status === 'active')
       @php
-        $sbPrintLimit = \App\Models\ServiceRequest::dailyPrintingLimit();
-        $sbPrintUsed  = \App\Models\ServiceRequest::printingPagesUsedToday($user->id);
-        $sbCopyLimit  = \App\Models\ServiceRequest::dailyPhotocopyLimit();
-        $sbCopyUsed   = \App\Models\ServiceRequest::photocopyPagesUsedToday($user->id);
-        $sbMinLimit   = \App\Models\ServiceRequest::dailyResearchLimit();
-        $sbMinUsed    = \App\Models\ServiceRequest::minutesUsedToday($user->id);
+        $sbPrintLimit = $printingLimit ?? \App\Models\ServiceRequest::dailyPrintingLimit();
+        $sbPrintUsed  = $printingUsedToday ?? \App\Models\ServiceRequest::printingPagesUsedToday($user->id);
+        $sbCopyLimit  = $photocopyLimit ?? \App\Models\ServiceRequest::dailyPhotocopyLimit();
+        $sbCopyUsed   = $photocopyUsedToday ?? \App\Models\ServiceRequest::photocopyPagesUsedToday($user->id);
+        $sbMinLimit   = $minutesLimit ?? \App\Models\ServiceRequest::dailyResearchLimit();
+        $sbMinUsed    = $minutesUsedToday ?? \App\Models\ServiceRequest::minutesUsedToday($user->id);
       @endphp
       <div style="margin-top:6px;font-size:.6rem;color:rgba(255,255,255,.55);display:flex;gap:7px;flex-wrap:wrap" title="Today's usage — resets 12:00 AM">
         <span><i class="fa-solid fa-print"></i> {{ $sbPrintUsed }}/{{ $sbPrintLimit }}</span>
@@ -91,7 +91,7 @@
     <a href="{{ route('requests.history') }}"
        class="sb-link {{ request()->routeIs('requests.history') ? 'active' : '' }}">
       <i class="fa-solid fa-clock-rotate-left"></i> My Requests
-      @php $pendingCount = \App\Models\ServiceRequest::where('user_id',$user->id)->where('status','pending')->count(); @endphp
+      @php $pendingCount = $stats['pending'] ?? \App\Models\ServiceRequest::where('user_id',$user->id)->where('status','pending')->count(); @endphp
       @if($pendingCount)<span class="nb">{{ $pendingCount }}</span>@endif
     </a>
     @endif

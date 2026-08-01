@@ -10,6 +10,7 @@
     <div class="content">
 
       @if(session('success'))<div class="abox ok" style="margin-bottom:14px"><i class="fa-solid fa-circle-check"></i> {{ session('success') }}</div>@endif
+      @if(session('warning'))<div class="abox warn" style="margin-bottom:14px"><i class="fa-solid fa-triangle-exclamation"></i> {{ session('warning') }}</div>@endif
 
       <div style="display:grid;grid-template-columns:320px 1fr;gap:16px;align-items:start">
 

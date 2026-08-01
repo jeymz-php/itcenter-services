@@ -98,26 +98,62 @@
           </div>
         </div>
 
-        <div class="profile-card">
-          <div class="profile-card-hd"><i class="fa-solid fa-clock"></i> System Hours</div>
+        <div class="profile-card" style="grid-column:1/-1">
+          <div class="profile-card-hd">
+            <i class="fa-solid fa-calendar-days"></i> IT Center Operating Schedule
+            <span class="tag {{ \App\Models\Setting::isWithinSystemHours() ? 'tag-active' : 'tag-rej' }}" style="margin-left:auto">
+              {{ \App\Models\Setting::isWithinSystemHours() ? 'OPEN NOW' : 'CLOSED NOW' }}
+            </span>
+          </div>
           <div class="profile-card-body">
             <div class="abox info" style="margin-bottom:16px">
               <i class="fa-solid fa-circle-info"></i>
-              <div>Users may browse outside these hours but cannot submit new requests until the IT Center reopens.</div>
-            </div>
-            <form action="{{ route('admin.settings.hours') }}" method="POST">
-              @csrf @method('PUT')
-              <div class="g2">
-                <div class="fg">
-                  <div class="flabel"><i class="fa-solid fa-door-open" style="color:var(--g600)"></i> Opening Time</div>
-                  <input type="time" name="system_open_time" class="fc" value="{{ old('system_open_time', $systemOpenTime) }}" required>
-                </div>
-                <div class="fg">
-                  <div class="flabel"><i class="fa-solid fa-door-closed" style="color:var(--red)"></i> Closing Time</div>
-                  <input type="time" name="system_close_time" class="fc" value="{{ old('system_close_time', $systemCloseTime) }}" required>
-                </div>
+              <div>
+                <strong>Default schedule:</strong> Monday to Thursday and Saturday, 7:00 AM to 6:30 PM. Friday and Sunday are closed by default, but a Super Admin may manually open either day and change its hours.
+                Users may still browse while closed, but new requests are blocked on the web portal, Public Request page, and mobile/API.
               </div>
-              <button type="submit" class="btn"><i class="fa-solid fa-floppy-disk"></i> Save Hours</button>
+            </div>
+
+            <form action="{{ route('admin.settings.hours') }}" method="POST" id="operating-schedule-form" data-loading-message="Saving operating schedule...">
+              @csrf @method('PUT')
+              <div class="schedule-grid">
+                @foreach($operatingSchedule as $day => $entry)
+                  @php
+                    $enabledValue = old("operating_schedule.$day.enabled", $entry['enabled'] ? '1' : '0');
+                    $enabled = in_array((string)$enabledValue, ['1','true','on'], true);
+                  @endphp
+                  <div class="schedule-day-row {{ $enabled ? 'schedule-open' : 'schedule-closed' }}" data-schedule-row="{{ $day }}">
+                    <div class="schedule-day-name">
+                      <div class="schedule-day-icon"><i class="fa-solid {{ $enabled ? 'fa-door-open' : 'fa-door-closed' }}"></i></div>
+                      <div>
+                        <strong>{{ ucfirst($day) }}</strong>
+                        <span data-schedule-status="{{ $day }}">{{ $enabled ? 'Open for requests' : 'Closed all day' }}</span>
+                      </div>
+                    </div>
+
+                    <label class="schedule-switch" title="Open or close {{ ucfirst($day) }}">
+                      <input type="hidden" name="operating_schedule[{{ $day }}][enabled]" value="0">
+                      <input type="checkbox" name="operating_schedule[{{ $day }}][enabled]" value="1" {{ $enabled ? 'checked' : '' }} data-schedule-toggle="{{ $day }}">
+                      <span></span>
+                    </label>
+
+                    <div class="schedule-time-field">
+                      <label>Opens</label>
+                      <input type="time" class="fc" name="operating_schedule[{{ $day }}][open]" value="{{ old("operating_schedule.$day.open", $entry['open']) }}" required>
+                    </div>
+                    <div class="schedule-time-separator"><i class="fa-solid fa-arrow-right"></i></div>
+                    <div class="schedule-time-field">
+                      <label>Closes</label>
+                      <input type="time" class="fc" name="operating_schedule[{{ $day }}][close]" value="{{ old("operating_schedule.$day.close", $entry['close']) }}" required>
+                    </div>
+                  </div>
+                @endforeach
+              </div>
+
+              <div style="display:flex;gap:9px;justify-content:flex-end;flex-wrap:wrap;margin-top:16px">
+                <button type="button" class="btn-outline" id="reset-default-schedule"><i class="fa-solid fa-rotate-left"></i> Restore Default Schedule</button>
+                <button type="submit" class="btn" style="max-width:280px"><i class="fa-solid fa-floppy-disk"></i> Save Operating Schedule</button>
+              </div>
             </form>
           </div>
         </div>
@@ -236,7 +272,9 @@
 .service-toggle-copy{flex:1;min-width:0}.service-toggle-title{font-size:.82rem;font-weight:800;color:var(--gray800)}.service-toggle-desc{font-size:.65rem;color:var(--gray400);line-height:1.4;margin-top:3px}.service-toggle-state{font-size:.67rem;font-weight:700;margin-top:7px}
 .switch-control{position:relative;width:44px;height:24px;flex-shrink:0}.switch-control input{opacity:0;width:0;height:0}.switch-slider{position:absolute;inset:0;background:var(--gray300);border-radius:30px;transition:.2s}.switch-slider:before{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.2);transition:.2s}.switch-control input:checked+.switch-slider{background:var(--g500)}.switch-control input:checked+.switch-slider:before{transform:translateX(20px)}
 .version-history-list{display:flex;flex-direction:column;gap:9px}.version-history-item{border:1.5px solid var(--gray200);border-radius:11px;background:var(--white);overflow:hidden}.version-history-item summary{list-style:none;cursor:pointer;padding:12px 14px;display:flex;align-items:center;gap:10px}.version-history-item summary::-webkit-details-marker{display:none}.version-history-badge{font-size:.76rem;font-weight:800;color:var(--g700);background:var(--g100);border-radius:8px;padding:5px 9px;white-space:nowrap}.version-history-meta{display:flex;align-items:center;gap:8px;flex:1;font-size:.68rem;color:var(--gray400)}.version-history-item summary>i{font-size:.68rem;color:var(--gray400);transition:.2s}.version-history-item[open] summary>i{transform:rotate(180deg)}.version-history-notes{border-top:1px solid var(--gray100);padding:13px 15px;font-size:.75rem;color:var(--gray700);line-height:1.65}.version-updated-by{margin-top:10px;font-size:.64rem;color:var(--gray400)}
-@media(max-width:900px){.service-toggle-grid{grid-template-columns:1fr}.content>div[style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr!important}}
+.schedule-grid{display:flex;flex-direction:column;gap:9px}.schedule-day-row{display:grid;grid-template-columns:minmax(170px,1.3fr) 54px minmax(130px,1fr) 28px minmax(130px,1fr);align-items:center;gap:10px;border:1.5px solid var(--gray200);border-radius:12px;padding:11px 13px;background:var(--white);transition:.2s}.schedule-day-row.schedule-open{border-color:var(--g200);background:var(--g50)}.schedule-day-row.schedule-closed{background:var(--gray100);opacity:.82}.schedule-day-name{display:flex;align-items:center;gap:10px}.schedule-day-icon{width:36px;height:36px;border-radius:9px;background:var(--white);border:1px solid var(--gray200);display:flex;align-items:center;justify-content:center;color:var(--g600)}.schedule-closed .schedule-day-icon{color:var(--gray400)}.schedule-day-name strong{display:block;font-size:.78rem;color:var(--gray800)}.schedule-day-name span{display:block;font-size:.62rem;color:var(--gray400);margin-top:2px}.schedule-switch{position:relative;width:44px;height:24px;cursor:pointer}.schedule-switch input[type=checkbox]{opacity:0;width:0;height:0}.schedule-switch span{position:absolute;inset:0;border-radius:999px;background:var(--gray300);transition:.2s}.schedule-switch span:before{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.2);transition:.2s}.schedule-switch input:checked+span{background:var(--g500)}.schedule-switch input:checked+span:before{transform:translateX(20px)}.schedule-time-field label{display:block;font-size:.59rem;font-weight:800;color:var(--gray400);text-transform:uppercase;margin-bottom:4px}.schedule-time-field .fc{padding:8px 10px;background:var(--white)}.schedule-time-separator{text-align:center;color:var(--gray400);font-size:.7rem}
+@media(max-width:900px){.service-toggle-grid{grid-template-columns:1fr}.content>div[style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr!important}.schedule-day-row{grid-template-columns:1fr 50px}.schedule-time-field{grid-column:span 1}.schedule-time-separator{display:none}}
+@media(max-width:560px){.schedule-day-row{grid-template-columns:1fr 48px}.schedule-time-field{grid-column:1/-1}.schedule-day-row .schedule-time-field+.schedule-time-field{margin-top:-4px}}
 </style>
 @endpush
 
@@ -258,6 +296,34 @@ document.querySelectorAll('[data-service-toggle]').forEach(toggle => {
     state.innerHTML = toggle.checked
       ? '<i class="fa-solid fa-circle-check"></i> Available to users'
       : '<i class="fa-solid fa-circle-xmark"></i> Currently unavailable';
+  });
+});
+
+const defaultSchedule = @json(\App\Models\Setting::defaultOperatingSchedule());
+function refreshScheduleRow(day, checked){
+  const row = document.querySelector(`[data-schedule-row="${day}"]`);
+  if(!row) return;
+  row.classList.toggle('schedule-open', checked);
+  row.classList.toggle('schedule-closed', !checked);
+  const status = row.querySelector(`[data-schedule-status="${day}"]`);
+  if(status) status.textContent = checked ? 'Open for requests' : 'Closed all day';
+  const icon = row.querySelector('.schedule-day-icon i');
+  if(icon) icon.className = checked ? 'fa-solid fa-door-open' : 'fa-solid fa-door-closed';
+}
+
+document.querySelectorAll('[data-schedule-toggle]').forEach(toggle => {
+  toggle.addEventListener('change', () => refreshScheduleRow(toggle.dataset.scheduleToggle, toggle.checked));
+});
+
+document.getElementById('reset-default-schedule')?.addEventListener('click', () => {
+  Object.entries(defaultSchedule).forEach(([day, entry]) => {
+    const row = document.querySelector(`[data-schedule-row="${day}"]`);
+    const toggle = row?.querySelector('[data-schedule-toggle]');
+    const times = row?.querySelectorAll('input[type="time"]');
+    if(toggle) toggle.checked = Boolean(entry.enabled);
+    if(times?.[0]) times[0].value = entry.open;
+    if(times?.[1]) times[1].value = entry.close;
+    refreshScheduleRow(day, Boolean(entry.enabled));
   });
 });
 </script>

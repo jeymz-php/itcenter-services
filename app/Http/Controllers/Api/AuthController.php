@@ -3,8 +3,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Mail\AccountPendingMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
@@ -80,11 +83,25 @@ class AuthController extends Controller
             'status'          => 'pending',
         ]);
 
+        $emailSent = true;
+        try {
+            Mail::to($user->email)->send(new AccountPendingMail($user, route('dashboard')));
+        } catch (\Throwable $e) {
+            $emailSent = false;
+            Log::warning('API pending-account email could not be sent.', [
+                'user_id' => $user->id,
+                'email'   => $user->email,
+                'error'   => $e->getMessage(),
+            ]);
+        }
+
         $token = $user->createToken('android-app')->plainTextToken;
 
         return response()->json([
-            'token' => $token,
-            'user'  => $this->userPayload($user),
+            'token'                   => $token,
+            'user'                    => $this->userPayload($user),
+            'email_notification_sent' => $emailSent,
+            'message'                 => 'Account created and pending administrator approval.',
         ], 201);
     }
 

@@ -275,6 +275,15 @@ body{background:var(--offwhite)}
   @php
     $unavailablePublicServices = collect($serviceAvailability)->reject()->keys()->map(fn($service) => \App\Models\Setting::serviceLabel($service));
   @endphp
+  <div class="abox {{ $openNow ? 'info' : 'warn' }}" style="margin-bottom:16px">
+    <i class="fa-solid {{ $openNow ? 'fa-door-open' : 'fa-clock' }}"></i>
+    <div>
+      <strong>{{ $openNow ? 'IT Center is open for requests.' : 'IT Center is currently closed.' }}</strong>
+      {{ $todayHours }}.
+      @unless($openNow) You may still view the page, but new requests can only continue during the configured operating schedule. @endunless
+    </div>
+  </div>
+
   @if($unavailablePublicServices->isNotEmpty())
   <div class="abox warn" style="margin-bottom:16px">
     <i class="fa-solid fa-circle-exclamation"></i>
@@ -716,6 +725,7 @@ body{background:var(--offwhite)}
 let currentRole = '{{ old('role','') }}';
 let currentSvc  = '{{ old('service_type','') }}';
 const serviceAvailability = @json($serviceAvailability);
+const systemOpenNow = @json($openNow);
 if (currentSvc && serviceAvailability[currentSvc] === false) {
   currentSvc = '';
   const serviceInput = document.getElementById('svc-input');
@@ -914,6 +924,7 @@ async function nextStep(from) {
   }
   if (from === 3) {
     if (!currentSvc) { alert('Please select an available service.'); return; }
+    if (!systemOpenNow) { alert(@json(\App\Models\Setting::closedMessage())); return; }
     if (serviceAvailability[currentSvc] === false) { alert('The selected service is currently unavailable.'); return; }
     updateStep4();
   }
@@ -1239,5 +1250,6 @@ updatePublicSubmitButton();
   showStep(1);
 @endif
 </script>
+@include('partials.loading-modal')
 </body>
 </html>

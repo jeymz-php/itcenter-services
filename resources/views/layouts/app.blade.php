@@ -415,6 +415,7 @@ tr:hover td{background:var(--g50)}
 <div class="bg-noise"></div>
 @endif
 @yield('content')
+@include('partials.loading-modal')
 
 @auth
 <div id="user-toast-container"></div>
@@ -488,7 +489,7 @@ if (typeof window.closeModal !== 'function') {
 }
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.modal-bg').forEach(m => {
-    m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+    m.addEventListener('click', e => { if (e.target === m && m.dataset.staticModal !== 'true') m.classList.remove('open'); });
   });
 });
 </script>

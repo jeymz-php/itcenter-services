@@ -432,5 +432,6 @@ setInterval(syncStatus, 20000);
 </script>
 @endif
 
+@include('partials.loading-modal')
 </body>
 </html>

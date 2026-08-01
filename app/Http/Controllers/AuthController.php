@@ -2,9 +2,15 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\ComputerSession;
+use App\Models\ServiceRequest;
+use App\Models\Setting;
+use App\Mail\AccountPendingMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
@@ -89,8 +95,24 @@ class AuthController extends Controller
             'status'          => 'pending',
         ]);
 
+        $emailWarning = null;
+        try {
+            Mail::to($user->email)->send(new AccountPendingMail($user, route('dashboard')));
+        } catch (\Throwable $e) {
+            Log::warning('Pending-account email could not be sent.', [
+                'user_id' => $user->id,
+                'email'   => $user->email,
+                'error'   => $e->getMessage(),
+            ]);
+            $emailWarning = 'Your account was created, but the pending-approval email could not be delivered. You can still check your status from this dashboard.';
+        }
+
         Auth::login($user);
-        return redirect()->route('dashboard');
+        $redirect = redirect()->route('dashboard');
+        if ($emailWarning) {
+            $redirect->with('warning', $emailWarning);
+        }
+        return $redirect;
     }
 
     public function logout(Request $request) {
@@ -102,14 +124,86 @@ class AuthController extends Controller
 
     public function dashboard() {
         $user = Auth::user();
-        if (!$user) return redirect()->route('login');
+        if (!$user) {
+            return redirect()->route('login');
+        }
 
-        $pendingRating = \App\Models\ServiceRequest::where('user_id', $user->id)
-            ->where('status', 'completed')
-            ->whereDoesntHave('rating')
-            ->latest()
-            ->first();
+        $pendingRating = null;
+        $activeSession = null;
+        $recentRequests = collect();
+        $stats = [
+            'pending' => 0,
+            'approved' => 0,
+            'processing' => 0,
+            'completed' => 0,
+            'total' => 0,
+        ];
 
-        return view('dashboard', compact('user', 'pendingRating'));
-    }
-}
+        $printingLimit = $printingUsedToday = $printingRemainingToday = 0;
+        $photocopyLimit = $photocopyUsedToday = $photocopyRemainingToday = 0;
+        $minutesLimit = $minutesUsedToday = $minutesRemainingToday = 0;
+        $serviceAvailability = Setting::serviceAvailability();
+        $unavailableServices = collect($serviceAvailability)
+            ->reject()
+            ->keys()
+            ->map(fn ($service) => Setting::serviceLabel($service));
+        $systemOpenNow = Setting::isWithinSystemHours();
+        $todayHours = Setting::todayHoursLabel();
+
+        // Pending/deactivated/rejected dashboards do not need request-history,
+        // usage, or active-session queries. This keeps their page load light.
+        if ($user->status === 'active') {
+            $statusCounts = ServiceRequest::where('user_id', $user->id)
+                ->selectRaw('status, COUNT(*) as aggregate')
+                ->groupBy('status')
+                ->pluck('aggregate', 'status');
+
+            foreach (['pending', 'approved', 'processing', 'completed'] as $status) {
+                $stats[$status] = (int) ($statusCounts[$status] ?? 0);
+            }
+            $stats['total'] = (int) $statusCounts->sum();
+
+            $activeSession = ComputerSession::where('user_id', $user->id)
+                ->whereIn('status', ['active', 'extended'])
+                ->with(['computer', 'serviceRequest'])
+                ->first();
+
+            $recentRequests = ServiceRequest::where('user_id', $user->id)
+                ->latest()
+                ->take(5)
+                ->get();
+
+            $printingLimit = ServiceRequest::dailyPrintingLimit();
+            $printingUsedToday = ServiceRequest::printingPagesUsedToday($user->id);
+            $printingRemainingToday = max(0, $printingLimit - $printingUsedToday);
+
+            $photocopyLimit = ServiceRequest::dailyPhotocopyLimit();
+            $photocopyUsedToday = ServiceRequest::photocopyPagesUsedToday($user->id);
+            $photocopyRemainingToday = max(0, $photocopyLimit - $photocopyUsedToday);
+
+            $minutesLimit = ServiceRequest::dailyResearchLimit();
+            $minutesUsedToday = ServiceRequest::minutesUsedToday($user->id);
+            $minutesRemainingToday = max(0, $minutesLimit - $minutesUsedToday);
+
+            $pendingRating = ServiceRequest::where('user_id', $user->id)
+                ->where('status', 'completed')
+                ->whereDoesntHave('rating')
+                ->whereNull('rating_prompted_at')
+                ->oldest('updated_at')
+                ->first();
+
+            // Reserve the prompt before rendering. Refreshing or revisiting the
+            // dashboard will therefore not show the same review prompt again.
+            if ($pendingRating) {
+                $pendingRating->forceFill(['rating_prompted_at' => now()])->save();
+            }
+        }
+
+        return view('dashboard', compact(
+            'user', 'pendingRating', 'activeSession', 'recentRequests', 'stats',
+            'printingLimit', 'printingUsedToday', 'printingRemainingToday',
+            'photocopyLimit', 'photocopyUsedToday', 'photocopyRemainingToday',
+            'minutesLimit', 'minutesUsedToday', 'minutesRemainingToday',
+            'serviceAvailability', 'unavailableServices', 'systemOpenNow', 'todayHours'
+        ));
+    }}

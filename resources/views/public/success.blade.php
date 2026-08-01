@@ -179,5 +179,6 @@ document.querySelector('#guestRatingModal form')?.addEventListener('submit', (e)
   }
 });
 </script>
+@include('partials.loading-modal')
 </body>
 </html>

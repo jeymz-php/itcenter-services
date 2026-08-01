@@ -13,7 +13,10 @@ class GuestRequestController extends Controller
         $paperSizes = InventoryItem::where('category','paper_size')->where('is_active',true)->orderBy('sort_order')->get();
         $durations  = InventoryItem::where('category','pc_duration')->where('is_active',true)->orderBy('sort_order')->get();
         $serviceAvailability = Setting::serviceAvailability();
-        return view('public.request', compact('paperSizes','durations','serviceAvailability'));
+        $openNow = Setting::isWithinSystemHours();
+        $todayHours = Setting::todayHoursLabel();
+        $operatingSchedule = Setting::operatingSchedule();
+        return view('public.request', compact('paperSizes','durations','serviceAvailability','openNow','todayHours','operatingSchedule'));
     }
 
     public function checkUsage(Request $request) {
@@ -21,6 +24,11 @@ class GuestRequestController extends Controller
         $email = $request->email;
 
         return response()->json([
+            'system' => [
+                'open_now' => Setting::isWithinSystemHours(),
+                'today_hours' => Setting::todayHoursLabel(),
+                'today' => Setting::todaySchedule(),
+            ],
             'printing' => [
                 'available' => Setting::isServiceAvailable('printing'),
                 'limit'     => GuestRequest::dailyPrintingLimit(),
@@ -48,6 +56,12 @@ class GuestRequestController extends Controller
             && !Setting::isServiceAvailable($requestedService)) {
             return back()->withErrors([
                 'service_type' => Setting::serviceUnavailableMessage($requestedService),
+            ])->withInput();
+        }
+
+        if (!Setting::isWithinSystemHours()) {
+            return back()->withErrors([
+                'service_type' => Setting::closedMessage(),
             ])->withInput();
         }
 

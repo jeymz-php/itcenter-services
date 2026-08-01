@@ -43,5 +43,6 @@
     <p>{{ $message }}</p>
     <div class="foot">If you're an administrator, please sign in as usual.</div>
   </div>
+@include('partials.loading-modal')
 </body>
 </html>

@@ -2,31 +2,7 @@
 @section('title','Dashboard | IT Center Services')
 @section('body-class','dash-page')
 @section('content')
-@php
-  $user = Auth::user();
-  $stats = [
-    'pending'    => \App\Models\ServiceRequest::where('user_id',$user->id)->where('status','pending')->count(),
-    'approved'   => \App\Models\ServiceRequest::where('user_id',$user->id)->where('status','approved')->count(),
-    'processing' => \App\Models\ServiceRequest::where('user_id',$user->id)->where('status','processing')->count(),
-    'completed'  => \App\Models\ServiceRequest::where('user_id',$user->id)->where('status','completed')->count(),
-    'total'      => \App\Models\ServiceRequest::where('user_id',$user->id)->count(),
-  ];
-  $activeSession = \App\Models\ComputerSession::where('user_id',$user->id)
-                   ->whereIn('status',['active','extended'])->with('computer','serviceRequest')->first();
-  $recentRequests = \App\Models\ServiceRequest::where('user_id',$user->id)->latest()->take(5)->get();
 
-  $printingLimit        = \App\Models\ServiceRequest::dailyPrintingLimit();
-  $printingUsedToday    = \App\Models\ServiceRequest::printingPagesUsedToday($user->id);
-  $printingRemainingToday = \App\Models\ServiceRequest::printingPagesRemainingToday($user->id);
-  $photocopyLimit        = \App\Models\ServiceRequest::dailyPhotocopyLimit();
-  $photocopyUsedToday    = \App\Models\ServiceRequest::photocopyPagesUsedToday($user->id);
-  $photocopyRemainingToday = \App\Models\ServiceRequest::photocopyPagesRemainingToday($user->id);
-  $minutesLimit      = \App\Models\ServiceRequest::dailyResearchLimit();
-  $minutesUsedToday    = \App\Models\ServiceRequest::minutesUsedToday($user->id);
-  $minutesRemainingToday = \App\Models\ServiceRequest::minutesRemainingToday($user->id);
-  $serviceAvailability = \App\Models\Setting::serviceAvailability();
-  $unavailableServices = collect($serviceAvailability)->reject()->keys()->map(fn($service) => \App\Models\Setting::serviceLabel($service));
-@endphp
 
 <div class="dash-wrap">
   @include('user.partials.sidebar')
@@ -55,6 +31,12 @@
       @if(session('success'))
         <div class="abox ok" style="margin-bottom:16px">
           <i class="fa-solid fa-circle-check"></i> {{ session('success') }}
+        </div>
+      @endif
+
+      @if(session('warning'))
+        <div class="abox warn" style="margin-bottom:16px">
+          <i class="fa-solid fa-triangle-exclamation"></i> {{ session('warning') }}
         </div>
       @endif
 
@@ -95,6 +77,16 @@
           <div>For faster verification, visit the IT Center with your valid UCC ID.<br>
           <strong>itcenter@ucc-caloocan.edu.ph</strong></div>
         </div>
+
+        <div class="pending-refresh-panel">
+          <div class="pending-refresh-note">
+            <i class="fa-solid fa-arrows-rotate"></i>
+            <div><strong>Already approved by an administrator?</strong><br>Click the Refresh Status button to reload your account and check whether it is still pending or already active.</div>
+          </div>
+          <a href="{{ route('dashboard') }}" class="btn pending-refresh-btn" data-loading-message="Refreshing account status...">
+            <i class="fa-solid fa-rotate"></i> Refresh Status
+          </a>
+        </div>
       </div>
 
       {{-- ── DEACTIVATED STATE ── --}}
@@ -133,6 +125,11 @@
         <div><strong>Temporarily unavailable:</strong> {{ $unavailableServices->join(', ') }}. Existing requests remain visible. Please review the User Manual or Infographics and check again later.</div>
       </div>
       @endif
+
+      <div class="abox {{ $systemOpenNow ? 'info' : 'warn' }}" style="margin-bottom:16px">
+        <i class="fa-solid {{ $systemOpenNow ? 'fa-door-open' : 'fa-clock' }}"></i>
+        <div><strong>{{ $systemOpenNow ? 'IT Center is open for new requests.' : 'IT Center is currently closed for new requests.' }}</strong> {{ $todayHours }}.</div>
+      </div>
 
       {{-- ACTIVE PC SESSION BANNER --}}
       @if($activeSession)
@@ -207,66 +204,67 @@
       </div>
       @endif
 
-      {{-- RATING PROMPT MODAL --}}
+      {{-- RATING PROMPT MODAL: one appearance per completed request --}}
       @if($pendingRating)
-      <div class="modal-bg" id="ratingModal">
-        <div class="modal-box" style="max-width:480px">
-          <div class="modal-hd">
-            <h3><i class="fa-solid fa-star" style="color:#f5a623;margin-right:6px"></i>Rate Your Experience</h3>
-            <button class="modal-close" onclick="closeModal('ratingModal')"><i class="fa-solid fa-xmark"></i></button>
+      <div class="modal-bg rating-review-bg" id="ratingModal" data-static-modal="true" role="dialog" aria-modal="true" aria-labelledby="ratingModalTitle">
+        <div class="modal-box rating-review-modal">
+          <div class="rating-review-hero">
+            <div class="rating-review-icon"><i class="fa-solid fa-star"></i></div>
+            <div>
+              <div class="rating-review-kicker">SERVICE COMPLETED</div>
+              <h3 id="ratingModalTitle">How was your experience?</h3>
+              <p>Your {{ ucfirst($pendingRating->service_type) }} request <strong>{{ $pendingRating->request_number }}</strong> is complete. This review prompt appears only once for this request.</p>
+            </div>
           </div>
-          <form action="{{ route('ratings.store') }}" method="POST">
+
+          <form action="{{ route('ratings.store') }}" method="POST" data-loading-message="Submitting your feedback...">
             @csrf
             <input type="hidden" name="service_request_id" value="{{ $pendingRating->id }}">
             <input type="hidden" name="stars" id="stars-input" value="0">
-            <div class="modal-body">
-
-              <div class="abox info" style="margin-bottom:16px">
-                <i class="fa-solid fa-circle-info"></i>
-                <div>Your request <strong>{{ $pendingRating->request_number }}</strong> ({{ ucfirst($pendingRating->service_type) }}) has been completed. We'd love your feedback!</div>
-              </div>
-
-              <div class="fg">
-                <div class="flabel">Show My Details</div>
-                <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1.5px solid var(--gray200);border-radius:10px;margin-bottom:8px;cursor:pointer">
+            <div class="modal-body rating-review-body" tabindex="0">
+              <div class="rating-section-label">Review visibility</div>
+              <div class="rating-visibility-grid">
+                <label class="rating-visibility-card">
                   <input type="radio" name="visibility" value="public" checked>
-                  <div>
-                    <div style="font-size:.8rem;font-weight:700;color:var(--gray800)">Show my Name, ID Number &amp; Campus publicly</div>
-                    <div style="font-size:.68rem;color:var(--gray400)">Your full details will be visible with this review.</div>
-                  </div>
+                  <span class="rating-radio-dot"></span>
+                  <span><strong>Public details</strong><small>Show your full name, ID number and campus.</small></span>
                 </label>
-                <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1.5px solid var(--gray200);border-radius:10px;cursor:pointer">
+                <label class="rating-visibility-card">
                   <input type="radio" name="visibility" value="anonymous">
-                  <div>
-                    <div style="font-size:.8rem;font-weight:700;color:var(--gray800)">Make me Anonymous</div>
-                    <div style="font-size:.68rem;color:var(--gray400)">Only part of your first name and last 4 ID digits will show (e.g. "Jam*** / ****0977"). Your campus still shows.</div>
-                  </div>
+                  <span class="rating-radio-dot"></span>
+                  <span><strong>Anonymous</strong><small>Mask your name and most of your ID number.</small></span>
                 </label>
               </div>
 
-              <div class="fg">
-                <div class="flabel">How would you rate your overall experience with this service — from submitting your request to how it was processed?</div>
-                <div id="star-selector" style="display:flex;gap:6px;font-size:1.8rem;margin-top:6px">
+              <div class="rating-stars-panel">
+                <div class="rating-section-label">Overall rating <span style="color:var(--red)">*</span></div>
+                <div id="star-selector" class="rating-star-selector" role="radiogroup" aria-label="Star rating">
                   @for($i=1;$i<=5;$i++)
-                  <i class="fa-regular fa-star star-icon" data-value="{{ $i }}" style="cursor:pointer;color:var(--gray300)"></i>
+                    <button type="button" class="rating-star-button" data-value="{{ $i }}" aria-label="{{ $i }} star{{ $i>1?'s':'' }}">
+                      <i class="fa-regular fa-star"></i>
+                    </button>
                   @endfor
                 </div>
+                <div id="rating-star-label" class="rating-star-label">Select from 1 to 5 stars</div>
               </div>
 
               <div class="fg">
-                <div class="flabel">Comment</div>
-                <textarea name="comment" class="fc" rows="3" placeholder="Tell us more about your experience..."></textarea>
+                <div class="flabel"><i class="fa-solid fa-comment-dots"></i> Comment <span class="rating-optional">Optional</span></div>
+                <textarea name="comment" class="fc" rows="3" maxlength="1000" placeholder="Tell us what went well or what could be improved..."></textarea>
               </div>
 
-              <div class="fg">
-                <div class="flabel">Suggestions / Questions <span style="color:var(--gray400);font-weight:400">(about the IT Center Services System)</span></div>
-                <textarea name="suggestions" class="fc" rows="3" placeholder="Any suggestions or questions for the IT Center?"></textarea>
+              <div class="fg" style="margin-bottom:0">
+                <div class="flabel"><i class="fa-solid fa-lightbulb"></i> Suggestions or questions <span class="rating-optional">Optional</span></div>
+                <textarea name="suggestions" class="fc" rows="3" maxlength="1000" placeholder="Share an idea for improving the IT Center Services system..."></textarea>
               </div>
-
             </div>
-            <div class="modal-footer">
-              <button type="button" class="modal-btn secondary" onclick="closeModal('ratingModal')">Maybe Later</button>
-              <button type="submit" class="modal-btn primary"><i class="fa-solid fa-paper-plane"></i> Submit Feedback</button>
+            <div class="modal-footer rating-review-footer">
+              <button type="button" id="rating-maybe-later" class="modal-btn secondary" onclick="dismissRatingPrompt()">
+                <i class="fa-regular fa-clock"></i> Maybe Later
+              </button>
+              <button type="submit" class="modal-btn primary">
+                <i class="fa-solid fa-paper-plane"></i> Submit Review
+              </button>
             </div>
           </form>
         </div>
@@ -418,6 +416,21 @@
 <style>
 .stat-grid{display:grid;gap:12px;margin-bottom:18px}
 input[type=radio]:checked+.dur-opt{border-color:var(--g500)!important;background:var(--g100)!important}
+
+.pending-refresh-panel{max-width:500px;margin-top:18px;padding:15px;border:1.5px solid var(--g200);border-radius:13px;background:var(--g50)}
+.pending-refresh-note{display:flex;gap:10px;text-align:left;font-size:.73rem;line-height:1.55;color:var(--gray600);margin-bottom:12px}.pending-refresh-note>i{color:var(--g600);margin-top:3px}.pending-refresh-btn{max-width:220px;margin:0 auto;padding:10px 16px;text-decoration:none}
+.rating-review-bg{background:rgba(7,31,22,.68);backdrop-filter:blur(6px);overflow:hidden;overscroll-behavior:none;padding:12px;align-items:center;justify-content:center}
+.rating-review-modal{width:100%;max-width:570px;height:calc(100vh - 24px);height:calc(100dvh - 24px);max-height:760px;border-radius:20px;overflow:hidden;margin:0;display:flex;flex-direction:column;box-sizing:border-box}
+.rating-review-modal>form{display:flex;flex:1 1 auto;width:100%;height:100%;min-height:0;overflow:hidden;flex-direction:column}
+.rating-review-hero{padding:22px 24px;display:flex;gap:14px;align-items:flex-start;color:#fff;background:linear-gradient(135deg,#124530,#249660);flex:0 0 auto}
+.rating-review-icon{width:52px;height:52px;border-radius:15px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.16);font-size:1.25rem;flex-shrink:0;color:#ffd66b}
+.rating-review-kicker{font-size:.62rem;font-weight:800;letter-spacing:.12em;color:rgba(255,255,255,.72);margin-bottom:4px}.rating-review-hero h3{font-size:1.14rem;margin:0 0 5px}.rating-review-hero p{font-size:.72rem;line-height:1.55;color:rgba(255,255,255,.78);margin:0}
+.rating-review-body{padding:20px 22px;flex:1 1 auto;min-height:0;overflow-y:auto!important;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;scrollbar-gutter:stable}.rating-section-label{font-size:.72rem;font-weight:800;color:var(--gray700);margin-bottom:8px}
+.rating-visibility-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:17px}.rating-visibility-card{position:relative;display:flex;gap:9px;align-items:flex-start;border:1.5px solid var(--gray200);border-radius:11px;padding:11px;cursor:pointer;background:var(--white);transition:.18s}.rating-visibility-card:hover{border-color:var(--g300)}.rating-visibility-card input{position:absolute;opacity:0}.rating-visibility-card:has(input:checked){border-color:var(--g500);background:var(--g50);box-shadow:0 0 0 2px rgba(36,150,96,.08)}.rating-radio-dot{width:16px;height:16px;border:2px solid var(--gray300);border-radius:50%;margin-top:1px;flex-shrink:0;position:relative}.rating-visibility-card input:checked~.rating-radio-dot{border-color:var(--g600)}.rating-visibility-card input:checked~.rating-radio-dot:after{content:'';position:absolute;inset:3px;border-radius:50%;background:var(--g600)}.rating-visibility-card strong{display:block;font-size:.75rem;color:var(--gray800)}.rating-visibility-card small{display:block;font-size:.63rem;line-height:1.45;color:var(--gray400);margin-top:2px}
+.rating-stars-panel{border:1.5px solid #ffe0a3;background:#fffaf0;border-radius:12px;padding:14px;text-align:center;margin-bottom:16px}.rating-star-selector{display:flex;justify-content:center;gap:5px}.rating-star-button{border:0;background:transparent;color:#d4d9d7;font-size:1.9rem;cursor:pointer;padding:2px 4px;transition:transform .15s,color .15s}.rating-star-button:hover{transform:scale(1.12)}.rating-star-button.active{color:#f5a623}.rating-star-label{font-size:.65rem;color:#8b6a24;margin-top:5px;font-weight:700}.rating-optional{font-size:.6rem;font-weight:600;color:var(--gray400);margin-left:auto}.rating-review-footer{justify-content:space-between;background:var(--gray50);flex:0 0 auto}
+body.rating-modal-open{overflow:hidden!important}
+@media(max-width:600px){.rating-review-bg{padding:8px;align-items:flex-start}.rating-review-modal{height:calc(100vh - 16px);height:calc(100dvh - 16px);max-height:none;border-radius:16px}.rating-visibility-grid{grid-template-columns:1fr}.rating-review-hero{padding:16px}.rating-review-icon{width:46px;height:46px;border-radius:13px}.rating-review-body{padding:16px}.rating-review-footer{padding:12px 16px;flex-direction:column-reverse}.rating-review-footer .modal-btn{width:100%}}
+@media(max-height:700px){.rating-review-hero{padding-top:14px;padding-bottom:14px}.rating-review-hero p{line-height:1.4}.rating-review-body{padding-top:15px;padding-bottom:15px}}
 </style>
 @endpush
 
@@ -425,19 +438,27 @@ input[type=radio]:checked+.dur-opt{border-color:var(--g500)!important;background
 <script>
 function openModal(id){document.getElementById(id).classList.add('open')}
 function closeModal(id){document.getElementById(id).classList.remove('open')}
-document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open')}));
+document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m && m.dataset.staticModal!=='true')m.classList.remove('open')}));
 
 @if($pendingRating)
-document.addEventListener('DOMContentLoaded', () => openModal('ratingModal'));
+document.addEventListener('DOMContentLoaded', () => {
+  document.body.classList.add('rating-modal-open');
+  openModal('ratingModal');
+  const reviewBody = document.querySelector('#ratingModal .rating-review-body');
+  if (reviewBody) reviewBody.scrollTop = 0;
+});
 
-document.querySelectorAll('#star-selector .star-icon').forEach(star => {
-  star.addEventListener('click', () => {
-    const value = parseInt(star.dataset.value, 10);
+const ratingLabels = ['', 'Poor', 'Fair', 'Good', 'Very good', 'Excellent'];
+document.querySelectorAll('#star-selector .rating-star-button').forEach(button => {
+  button.addEventListener('click', () => {
+    const value = parseInt(button.dataset.value, 10);
     document.getElementById('stars-input').value = value;
-    document.querySelectorAll('#star-selector .star-icon').forEach(s => {
-      const v = parseInt(s.dataset.value, 10);
-      s.className = v <= value ? 'fa-solid fa-star star-icon' : 'fa-regular fa-star star-icon';
-      s.style.color = v <= value ? '#f5a623' : 'var(--gray300)';
+    document.getElementById('rating-star-label').textContent = ratingLabels[value];
+    document.querySelectorAll('#star-selector .rating-star-button').forEach(star => {
+      const active = parseInt(star.dataset.value, 10) <= value;
+      star.classList.toggle('active', active);
+      star.querySelector('i').className = active ? 'fa-solid fa-star' : 'fa-regular fa-star';
+      star.setAttribute('aria-checked', parseInt(star.dataset.value, 10) === value ? 'true' : 'false');
     });
   });
 });
@@ -445,9 +466,24 @@ document.querySelectorAll('#star-selector .star-icon').forEach(star => {
 document.querySelector('#ratingModal form')?.addEventListener('submit', (e) => {
   if (parseInt(document.getElementById('stars-input').value, 10) < 1) {
     e.preventDefault();
-    alert('Please select a star rating before submitting.');
+    document.getElementById('rating-star-label').textContent = 'Please select a star rating first.';
+    document.getElementById('rating-star-label').style.color = 'var(--red)';
   }
 });
+
+async function dismissRatingPrompt(){
+  const button = document.getElementById('rating-maybe-later');
+  if(button){button.disabled=true;button.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> Closing...';}
+  try{
+    await fetch(@json(route('ratings.dismiss', $pendingRating)),{
+      method:'POST',
+      headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest','X-CSRF-TOKEN':@json(csrf_token())},
+      credentials:'same-origin'
+    });
+  }catch(error){}
+  closeModal('ratingModal');
+  document.body.classList.remove('rating-modal-open');
+}
 @endif
 
 @if(isset($activeSession) && $activeSession)

@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\AdminNotification;
+use App\Mail\AccountApprovedMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 
 class UserManagementController extends Controller
@@ -42,16 +45,21 @@ class UserManagementController extends Controller
 
         $users = $query->latest()->paginate(15)->withQueryString();
 
-        $countsBase = User::query();
-        if ($admin->role !== 'super_admin') $countsBase->where('campus', $admin->campus);
-        $countsBase = $countsBase->get();
+        $countsQuery = User::query();
+        if ($admin->role !== 'super_admin') {
+            $countsQuery->where('campus', $admin->campus);
+        }
+        $statusCounts = $countsQuery
+            ->selectRaw('status, COUNT(*) as aggregate')
+            ->groupBy('status')
+            ->pluck('aggregate', 'status');
         $counts = [
-            'all'         => $countsBase->count(),
-            'pending'     => $countsBase->where('status','pending')->count(),
-            'active'      => $countsBase->where('status','active')->count(),
-            'deactivated' => $countsBase->where('status','deactivated')->count(),
-            'archived'    => $countsBase->where('status','archived')->count(),
-            'rejected'    => $countsBase->where('status','rejected')->count(),
+            'all'         => (int) $statusCounts->sum(),
+            'pending'     => (int) ($statusCounts['pending'] ?? 0),
+            'active'      => (int) ($statusCounts['active'] ?? 0),
+            'deactivated' => (int) ($statusCounts['deactivated'] ?? 0),
+            'archived'    => (int) ($statusCounts['archived'] ?? 0),
+            'rejected'    => (int) ($statusCounts['rejected'] ?? 0),
         ];
         return view('admin.users.index', compact('users','counts'));
     }
@@ -65,13 +73,34 @@ class UserManagementController extends Controller
     public function approve(User $user) {
         $admin = $this->adminGuard();
         $this->assertInScope($admin, $user);
+        $wasPending = $user->status === 'pending';
         $user->update(['status' => 'active']);
         AdminNotification::notify(
             'account_approved', 'Account Approved',
             "{$user->full_name} ({$user->id_number}) account has been approved.",
             $user, route('admin.users.index'), 'fa-user-check'
         );
-        return back()->with('success', "Account of {$user->full_name} approved.");
+
+        $emailWarning = null;
+        if ($wasPending) {
+            try {
+                Mail::to($user->email)->send(new AccountApprovedMail($user->fresh(), route('login')));
+            } catch (\Throwable $e) {
+                Log::warning('Approved-account email could not be sent.', [
+                    'user_id' => $user->id,
+                    'email'   => $user->email,
+                    'error'   => $e->getMessage(),
+                ]);
+                $emailWarning = "The account was approved, but the approval email could not be delivered to {$user->email}.";
+            }
+        }
+
+        $redirect = back()->with('success', "Account of {$user->full_name} approved."
+            . ($wasPending && !$emailWarning ? ' An approval email was sent to the user.' : ''));
+        if ($emailWarning) {
+            $redirect->with('warning', $emailWarning);
+        }
+        return $redirect;
     }
 
     public function reject(Request $request, User $user) {
