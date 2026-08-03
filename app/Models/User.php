@@ -11,10 +11,13 @@ class User extends Authenticatable
     protected $fillable = [
         'id_number','first_name','last_name','email',
         'profile_picture','campus','user_type','password','status',
-        'research_restricted','research_restriction_note',
+        'research_restricted','research_restriction_note','guide_seen_at',
     ];
     protected $hidden = ['password'];
-    protected $casts = ['research_restricted' => 'boolean'];
+    protected $casts = [
+        'research_restricted' => 'boolean',
+        'guide_seen_at' => 'datetime',
+    ];
 
     public function getFullNameAttribute(): string {
         return "{$this->first_name} {$this->last_name}";
@@ -30,5 +33,9 @@ class User extends Authenticatable
     }
     public function serviceRequests() {
         return $this->hasMany(\App\Models\ServiceRequest::class)->latest();
+    }
+
+    public function notifications() {
+        return $this->hasMany(\App\Models\UserNotification::class);
     }
 }

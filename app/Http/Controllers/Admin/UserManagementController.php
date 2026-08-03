@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\AdminNotification;
+use App\Models\UserNotification;
 use App\Mail\AccountApprovedMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -80,6 +81,11 @@ class UserManagementController extends Controller
             "{$user->full_name} ({$user->id_number}) account has been approved.",
             $user, route('admin.users.index'), 'fa-user-check'
         );
+        UserNotification::notify(
+            $user, 'account_approved', 'Account Approved',
+            'Your IT Center Services account has been approved. Refresh your dashboard to access the available services.',
+            route('dashboard'), 'fa-user-check'
+        );
 
         $emailWarning = null;
         if ($wasPending) {
@@ -113,6 +119,11 @@ class UserManagementController extends Controller
             "{$user->full_name} ({$user->id_number}) account was rejected. Reason: {$request->reason}",
             $user, route('admin.users.index'), 'fa-user-xmark'
         );
+        UserNotification::notify(
+            $user, 'account_rejected', 'Account Registration Rejected',
+            "Your account registration was rejected. Reason: {$request->reason}",
+            route('dashboard'), 'fa-user-xmark'
+        );
         return back()->with('success', "Account of {$user->full_name} rejected.");
     }
 
@@ -124,6 +135,11 @@ class UserManagementController extends Controller
             'account_activated','Account Activated',
             "{$user->full_name} account has been activated.",
             $user, route('admin.users.index'), 'fa-user-check'
+        );
+        UserNotification::notify(
+            $user, 'account_activated', 'Account Activated',
+            'Your IT Center Services account has been activated.',
+            route('dashboard'), 'fa-user-check'
         );
         return back()->with('success', "Account activated.");
     }
@@ -137,6 +153,11 @@ class UserManagementController extends Controller
             'account_deactivated','Account Deactivated',
             "{$user->full_name} account has been deactivated.",
             $user, route('admin.users.index'), 'fa-user-slash'
+        );
+        UserNotification::notify(
+            $user, 'account_deactivated', 'Account Deactivated',
+            'Your IT Center Services account has been deactivated. Contact the IT Center or submit a reactivation request for assistance.',
+            route('dashboard'), 'fa-user-slash'
         );
         return back()->with('success', "Account deactivated.");
     }
@@ -229,6 +250,11 @@ class UserManagementController extends Controller
             "{$user->full_name}'s access to Research/PC-Lab requests has been restricted. Reason: {$request->reason}",
             $user, route('admin.users.index'), 'fa-desktop'
         );
+        UserNotification::notify(
+            $user, 'research_restricted', 'Research / PC Lab Access Restricted',
+            "Your Research / PC Lab access has been restricted. Reason: {$request->reason}",
+            route('dashboard'), 'fa-desktop'
+        );
 
         return back()->with('success', "{$user->full_name} is now restricted from Research/PC-Lab requests.");
     }
@@ -246,6 +272,11 @@ class UserManagementController extends Controller
             'research_unrestricted','Research/PC-Lab Access Restored',
             "{$user->full_name}'s access to Research/PC-Lab requests has been restored.",
             $user, route('admin.users.index'), 'fa-desktop'
+        );
+        UserNotification::notify(
+            $user, 'research_unrestricted', 'Research / PC Lab Access Restored',
+            'Your Research / PC Lab access has been restored.',
+            route('requests.research'), 'fa-desktop'
         );
 
         return back()->with('success', "{$user->full_name}'s Research/PC-Lab access has been restored.");
@@ -322,6 +353,11 @@ class UserManagementController extends Controller
             "{$accountRequest->type} request for {$user->full_name} approved.",
             $user, route('admin.users.index'), 'fa-circle-check'
         );
+        UserNotification::notify(
+            $user, 'account_request_approved', 'Account Request Approved',
+            "Your {$accountRequest->type} account request has been approved.",
+            route('dashboard'), 'fa-circle-check'
+        );
         return back()->with('success','Request approved.');
     }
 
@@ -335,6 +371,14 @@ class UserManagementController extends Controller
             'reviewed_at' => now(),
             'admin_note'  => $request->admin_note,
         ]);
+        UserNotification::notify(
+            $accountRequest->user,
+            'account_request_rejected',
+            'Account Request Rejected',
+            'Your '.$accountRequest->type.' account request was rejected.' . ($request->admin_note ? ' Reason: '.$request->admin_note : ''),
+            route('profile'),
+            'fa-circle-xmark'
+        );
         return back()->with('success','Request rejected.');
     }
 

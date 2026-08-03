@@ -136,6 +136,7 @@
         <p>Manage your account details and settings</p>
       </div>
       <div class="topbar-right">
+        @include('user.partials.notification-button')
         <div class="clock">
           <i class="fa-solid fa-clock" style="color:var(--g600)"></i>
           <span id="clock">--:-- --</span>

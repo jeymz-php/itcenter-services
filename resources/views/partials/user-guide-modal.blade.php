@@ -71,7 +71,7 @@
           <div class="guide-panel-heading">
             <div>
               <h4>Infographics</h4>
-              <p>Browse the visual guides and FAQs. Select an image to open its full-size version in a new tab.</p>
+              <p>Browse the Canva visual guides and FAQs. Select an image to open its full-size version in a new tab.</p>
             </div>
           </div>
 
@@ -162,6 +162,28 @@ window.showGuideSection = function(section) {
   });
   const manualLink = document.getElementById('guide-open-manual-link');
   if (manualLink) manualLink.style.display = section === 'manual' ? 'inline-flex' : 'none';
+};
+
+window.openUserGuide = function(section = 'manual') {
+  showGuideSection(section);
+  openModal('userGuideModal');
+
+  document.querySelectorAll('[data-first-guide-note]').forEach(note => note.remove());
+
+  @auth
+  if (!window._userGuideMarkedSeen) {
+    window._userGuideMarkedSeen = true;
+    fetch('{{ route('user-guide.seen') }}', {
+      method: 'POST',
+      headers: {
+        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({opened: true})
+    }).catch(() => { window._userGuideMarkedSeen = false; });
+  }
+  @endauth
 };
 </script>
 @endpush

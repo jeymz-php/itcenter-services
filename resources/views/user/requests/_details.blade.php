@@ -47,7 +47,7 @@
         <div style="font-size:.72rem;color:var(--gray400);margin-top:2px">Submitted {{ $r->created_at->format('M d, Y \a\t g:i A') }}</div>
       </div>
     </div>
-    <span class="tag {{ $statusClass[$r->status] ?? '' }}">{{ strtoupper($r->status) }}</span>
+    <span class="tag {{ $statusClass[$r->status] ?? '' }}" data-request-status-id="{{ $r->id }}" data-current-status="{{ $r->status }}">{{ strtoupper($r->status) }}</span>
   </div>
 </div>
 
@@ -59,7 +59,7 @@
 
   <div style="padding:11px 12px;border:1px solid var(--gray200);border-radius:9px;background:var(--white)">
     <div style="font-size:.62rem;color:var(--gray400);font-weight:700;text-transform:uppercase;margin-bottom:3px">Last Updated</div>
-    <div style="font-size:.8rem;font-weight:700;color:var(--gray800)">{{ $r->updated_at->format('M d, Y g:i A') }}</div>
+    <div style="font-size:.8rem;font-weight:700;color:var(--gray800)" data-request-last-updated-id="{{ $r->id }}">{{ $r->updated_at->format('M d, Y g:i A') }}</div>
   </div>
 
   @if($r->service_type === 'printing')
@@ -109,7 +109,7 @@
     @if($session)
       <div style="padding:11px 12px;border:1px solid var(--gray200);border-radius:9px;background:var(--white)">
         <div style="font-size:.62rem;color:var(--gray400);font-weight:700;text-transform:uppercase;margin-bottom:3px">Session Status</div>
-        <div style="font-size:.82rem;font-weight:700;color:var(--gray800)">{{ ucfirst($session->status) }}</div>
+        <div style="font-size:.82rem;font-weight:700;color:var(--gray800)" data-session-status-id="{{ $r->id }}">{{ ucfirst($session->status) }}</div>
       </div>
       <div style="padding:11px 12px;border:1px solid var(--gray200);border-radius:9px;background:var(--white)">
         <div style="font-size:.62rem;color:var(--gray400);font-weight:700;text-transform:uppercase;margin-bottom:3px">Session Time</div>
@@ -153,14 +153,14 @@
   @endif
 
   @if($r->service_type === 'printing' && $r->status === 'pending')
-    <a href="{{ route('requests.printing.edit', $r) }}"
+    <a href="{{ route('requests.printing.edit', $r) }}" data-pending-only-request="{{ $r->id }}"
       style="background:var(--blue-bg);color:var(--blue);border:1.5px solid #90caf9;border-radius:8px;padding:8px 13px;font-size:.74rem;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:6px">
       <i class="fa-solid fa-pen-to-square"></i> Edit Request
     </a>
   @endif
 
   @if($r->service_type === 'photocopy' && $r->status === 'pending')
-    <a href="{{ route('requests.photocopy.edit', $r) }}"
+    <a href="{{ route('requests.photocopy.edit', $r) }}" data-pending-only-request="{{ $r->id }}"
       style="background:var(--orange-bg);color:var(--orange);border:1.5px solid #ffcc80;border-radius:8px;padding:8px 13px;font-size:.74rem;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:6px">
       <i class="fa-solid fa-pen-to-square"></i> Edit Request
     </a>

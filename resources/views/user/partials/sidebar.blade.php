@@ -96,6 +96,14 @@
     </a>
     @endif
 
+    <div class="sb-section">Updates</div>
+    @php $userUnreadNotifications = \App\Models\UserNotification::where('user_id', $user->id)->where('is_read', false)->count(); @endphp
+    <a href="{{ route('user.notifications.index') }}"
+       class="sb-link {{ request()->routeIs('user.notifications.*') ? 'active' : '' }}">
+      <i class="fa-solid fa-bell"></i> Notifications
+      <span class="nb" data-user-notif-badge style="{{ $userUnreadNotifications ? '' : 'display:none' }}">{{ $userUnreadNotifications }}</span>
+    </a>
+
     <div class="sb-section">Support</div>
     <a href="{{ route('user.messages.index') }}"
        class="sb-link {{ request()->routeIs('user.messages.*') ? 'active' : '' }}">
@@ -103,7 +111,7 @@
       @php $unreadMsgs = \App\Models\Message::where('user_id',$user->id)->where('sender_type','admin')->where('is_read_by_user',false)->count(); @endphp
       @if($unreadMsgs)<span class="nb" id="sb-msg-badge">{{ $unreadMsgs }}</span>@endif
     </a>
-    <a href="#" onclick="openModal('userGuideModal');return false;" class="sb-link">
+    <a href="#" onclick="openUserGuide('manual');return false;" class="sb-link">
       <img src="{{ asset('images/icons/user-guide_icon.png') }}" alt="" style="width:14px;height:14px;object-fit:contain;filter:brightness(0) invert(1);opacity:.85">
       User Guide
     </a>

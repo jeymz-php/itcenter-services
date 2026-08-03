@@ -15,8 +15,6 @@ use App\Http\Controllers\GuestRequestController;
 use App\Http\Controllers\Admin\GuestRequestController as AdminGuestRequestController;
 use App\Http\Controllers\User\NotificationController as UserNotificationController;
 
-Route::middleware('auth')->get('/user/notifications/poll', [UserNotificationController::class, 'poll'])->name('user.notifications.poll');
-
 Route::post('/requests/detect-pages', [ServiceRequestController::class, 'detectPages'])->name('requests.detect-pages');
 
 // ── PUBLIC AUTH ──
@@ -63,6 +61,19 @@ Route::middleware('auth')->group(function () {
     Route::post('/ratings', [App\Http\Controllers\User\RatingController::class, 'store'])->name('ratings.store');
     Route::post('/ratings/{serviceRequest}/dismiss', [App\Http\Controllers\User\RatingController::class, 'dismiss'])->name('ratings.dismiss');
 
+    // Notifications
+    Route::prefix('notifications')->name('user.notifications.')->group(function () {
+        Route::get('/', [UserNotificationController::class, 'index'])->name('index');
+        Route::get('/poll', [UserNotificationController::class, 'poll'])->name('poll');
+        Route::get('/unread-count', [UserNotificationController::class, 'unreadCount'])->name('count');
+        Route::get('/{notification}/open', [UserNotificationController::class, 'open'])->name('open');
+        Route::post('/{notification}/read', [UserNotificationController::class, 'markRead'])->name('read');
+        Route::post('/mark-all-read', [UserNotificationController::class, 'markAllRead'])->name('mark-all-read');
+    });
+
+    Route::post('/user-guide/seen', [App\Http\Controllers\User\GuideController::class, 'markSeen'])
+        ->name('user-guide.seen');
+
     // Messages
     Route::get('/messages',              [App\Http\Controllers\User\MessageController::class, 'index'])->name('user.messages.index');
     Route::post('/messages/send',        [App\Http\Controllers\User\MessageController::class, 'send'])->name('user.messages.send');
@@ -82,7 +93,6 @@ Route::post('/admin_logout', [AdminAuthController::class, 'logout'])->name('admi
 
 // Real-time polling endpoints
 Route::get('/admin/notifications/poll', [NotificationController::class, 'poll'])->name('admin.notifications.poll');
-Route::middleware('auth')->get('/user/notifications/poll', [App\Http\Controllers\User\NotificationController::class, 'poll'])->name('user.notifications.poll');
 
 // ── ADMIN PANEL ──
 Route::prefix('admin')->name('admin.')->group(function () {

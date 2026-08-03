@@ -1,7 +1,13 @@
 @php
   $admin       = session('admin');
   $isSuper     = $admin->role === 'super_admin';
-  $unread      = \App\Models\AdminNotification::where('is_read',false)->count();
+  $unreadQuery = \App\Models\AdminNotification::where('is_read', false);
+  if (!$isSuper) {
+    $unreadQuery->where(function ($query) use ($admin) {
+      $query->where('campus', $admin->campus)->orWhereNull('campus');
+    });
+  }
+  $unread = $unreadQuery->count();
   $pendingUsers = \App\Models\User::where('status','pending')
                     ->when(!$isSuper, fn($q) => $q->where('campus', $admin->campus))->count();
   $pendingReqs  = \App\Models\ServiceRequest::where('status','pending')
@@ -139,7 +145,7 @@
     <a href="{{ route('admin.notifications') }}"
        class="sb-link {{ request()->routeIs('admin.notifications') ? 'active' : '' }}">
       <i class="fa-solid fa-bell"></i> Notifications
-      @if($unread)<span class="nb">{{ $unread }}</span>@endif
+      <span class="nb" data-admin-notif-badge style="{{ $unread ? '' : 'display:none' }}">{{ $unread }}</span>
     </a>
 
     {{-- Logout lives inside .sb-nav on purpose: on mobile .sb-nav is hidden

@@ -12,10 +12,6 @@
       {{-- HEADER BAR --}}
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          @php
-            $unreadCount = \App\Models\AdminNotification::where('is_read',false)->count();
-            $totalCount  = \App\Models\AdminNotification::count();
-          @endphp
           <div style="background:var(--white);border-radius:10px;padding:10px 16px;border:1.5px solid var(--gray200);box-shadow:var(--shadow-sm);text-align:center;min-width:90px">
             <div style="font-size:1.3rem;font-weight:800;color:var(--gray800)">{{ $totalCount }}</div>
             <div style="font-size:.68rem;color:var(--gray400)">Total</div>
@@ -32,6 +28,11 @@
             <i class="fa-solid fa-check-double"></i> Mark All as Read
           </button>
         </form>
+      </div>
+
+      <div class="abox info" style="margin-bottom:16px">
+        <i class="fa-solid fa-satellite-dish"></i>
+        <div><strong>Real-time Research / PC Lab monitoring is active.</strong> While any Admin or Super Admin page is open, the system checks occupied PC time every five seconds. When time runs out, the request is completed automatically, the PC becomes available, and an alert appears here—without opening the request details.</div>
       </div>
 
       {{-- NOTIFICATIONS LIST --}}
@@ -83,6 +84,7 @@
                 'account_deactivated'   => ['#f3e5f5','#7b1fa2'],
                 'extend_request'        => ['var(--orange-bg)','var(--orange)'],
                 'session_ended'         => ['var(--g100)','var(--g700)'],
+                'session_expired'       => ['var(--orange-bg)','var(--orange)'],
                 'pc_assigned'           => ['var(--g100)','var(--g500)'],
                 'deactivate_request'    => ['#f3e5f5','#7b1fa2'],
                 'reactivate_request'    => ['var(--g100)','var(--g600)'],

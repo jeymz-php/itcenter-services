@@ -1,4 +1,14 @@
-@php $unread = \App\Models\AdminNotification::where('is_read',false)->count(); @endphp
+@php
+  $topbarAdmin = session('admin');
+  $adminNotificationScope = \App\Models\AdminNotification::query();
+  if ($topbarAdmin && $topbarAdmin->role !== 'super_admin') {
+      $adminNotificationScope->where(function ($query) use ($topbarAdmin) {
+          $query->where('campus', $topbarAdmin->campus)->orWhereNull('campus');
+      });
+  }
+  $unread = (clone $adminNotificationScope)->where('is_read', false)->count();
+  $lastAdminNotificationId = (clone $adminNotificationScope)->max('id') ?? 0;
+@endphp
 
 <div class="topbar">
   <div>
@@ -8,128 +18,285 @@
   <div class="topbar-right">
     <div class="clock">
       <i class="fa-solid fa-clock" style="color:var(--g600)"></i>
-      <span id="clock">--:-- --</span>
+      <span id="clock" data-admin-live-clock title="Philippine Standard Time">--:--:-- --</span>
     </div>
-    <a href="{{ route('admin.notifications') }}" class="notif-wrap"
-       style="color:var(--gray600);position:relative;text-decoration:none;display:flex;align-items:center">
+    <a href="{{ route('admin.notifications') }}"
+       id="admin-notification-toggle"
+       class="notif-wrap floating-notification-toggle"
+       aria-label="Open notifications"
+       aria-haspopup="true"
+       aria-expanded="false"
+       title="Notifications">
       <i class="fa-solid fa-bell" style="font-size:1.1rem"></i>
-      <span id="notif-badge"
-            class="notif-badge"
-            style="{{ $unread ? '' : 'display:none' }}">{{ $unread }}</span>
+      <span id="notif-badge" data-admin-notif-badge class="notif-badge" style="{{ $unread ? '' : 'display:none' }}">{{ $unread }}</span>
     </a>
   </div>
 </div>
 
-{{-- TOAST CONTAINER --}}
-<div id="toast-container"
-     style="position:fixed;top:20px;right:20px;z-index:9999;
-            display:flex;flex-direction:column;gap:8px;max-width:340px;pointer-events:none">
+<div id="admin-notification-panel" class="floating-notification-panel" aria-hidden="true">
+  <div class="floating-notification-header">
+    <div>
+      <strong>Notifications</strong>
+      <small>Admin and service updates</small>
+    </div>
+    <button type="button" id="admin-mark-all-read" class="floating-notification-text-btn">Mark all read</button>
+  </div>
+  <div id="admin-notification-list" class="floating-notification-list" aria-live="polite">
+    <div class="floating-notification-empty">
+      <i class="fa-solid fa-spinner fa-spin"></i>
+      <span>Loading notifications...</span>
+    </div>
+  </div>
+  <a href="{{ route('admin.notifications') }}" class="floating-notification-footer">
+    View all notifications <i class="fa-solid fa-arrow-right"></i>
+  </a>
 </div>
+
+<div id="toast-container" class="admin-toast-container"></div>
 
 @push('scripts')
 <script>
-// ── CLOCK ──
-if (!window._clockRunning) {
-  window._clockRunning = true;
-  (function tick(){
-    const n=new Date(), h=n.getHours(), m=n.getMinutes(), s=n.getSeconds();
-    const ap=h>=12?'PM':'AM', h12=h%12||12;
-    const el=document.getElementById('clock');
-    if(el) el.textContent=String(h12).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')+' '+ap;
-    setTimeout(tick,1000);
-  })();
-}
+(function () {
+  if (window.__itcAdminClockReady) return;
+  window.__itcAdminClockReady = true;
 
-// ── NOTIFICATION SOUND ──
-function playNotifSound(){
-  try{
-    const c=new(window.AudioContext||window.webkitAudioContext)();
-    [880,1100,880].forEach((f,i)=>{
-      const o=c.createOscillator(), g=c.createGain();
-      o.connect(g); g.connect(c.destination);
-      o.type='sine'; o.frequency.value=f;
-      g.gain.setValueAtTime(0.3,c.currentTime+i*0.15);
-      g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+i*0.15+0.12);
-      o.start(c.currentTime+i*0.15);
-      o.stop(c.currentTime+i*0.15+0.15);
+  const formatter = new Intl.DateTimeFormat('en-PH', {
+    timeZone: 'Asia/Manila',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
+
+  function updateAdminClock() {
+    document.querySelectorAll('[data-admin-live-clock]').forEach(clock => {
+      clock.textContent = formatter.format(new Date());
     });
-  }catch(e){}
-}
+  }
 
-// ── TOAST ──
-function showAdminToast(title, message, icon='fa-bell', type='info'){
-  const c = document.getElementById('toast-container');
-  const t = document.createElement('div');
-  const colors={info:'var(--g500)',warn:'var(--orange)',err:'var(--red)',ok:'var(--g500)'};
-  const border = colors[type] || colors.info;
-  t.style.cssText=`pointer-events:auto;background:#fff;border-radius:12px;
-    box-shadow:0 8px 28px rgba(0,0,0,.18);padding:14px 16px;
-    border-left:4px solid ${border};
-    animation:fadeUp .35s cubic-bezier(.16,1,.3,1);
-    display:flex;gap:10px;align-items:flex-start;
-    transition:opacity .3s`;
-  t.innerHTML=`
-    <div style="width:34px;height:34px;border-radius:9px;flex-shrink:0;
-      background:${border}22;display:flex;align-items:center;justify-content:center;color:${border};font-size:.9rem">
-      <i class="fa-solid ${icon}"></i>
-    </div>
-    <div style="flex:1;min-width:0">
-      <div style="font-size:.8rem;font-weight:800;color:var(--gray800);margin-bottom:2px">${title}</div>
-      <div style="font-size:.73rem;color:var(--gray600);line-height:1.4">${message}</div>
-    </div>
-    <button onclick="this.closest('div[style]').remove()"
-      style="background:none;border:none;color:var(--gray400);cursor:pointer;font-size:.9rem;flex-shrink:0;padding:2px">
-      <i class="fa-solid fa-xmark"></i>
-    </button>`;
-  c.appendChild(t);
-  setTimeout(()=>{ if(t.parentNode){ t.style.opacity='0'; setTimeout(()=>t.remove(),300); } }, 6000);
-}
+  updateAdminClock();
+  window.__itcAdminClockInterval = window.setInterval(updateAdminClock, 1000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) updateAdminClock();
+  });
+})();
+</script>
+<script>
+(function () {
+  if (window.__itcAdminNotificationReady) return;
+  window.__itcAdminNotificationReady = true;
 
-// ── REAL-TIME NOTIFICATION POLLING ──
-let lastNotifId = {{ \App\Models\AdminNotification::max('id') ?? 0 }};
-let lastCount   = {{ $unread }};
+  const toggle = document.getElementById('admin-notification-toggle');
+  const panel = document.getElementById('admin-notification-panel');
+  const list = document.getElementById('admin-notification-list');
+  const markAllButton = document.getElementById('admin-mark-all-read');
+  const csrfToken = @json(csrf_token());
+  let lastNotifId = {{ (int) $lastAdminNotificationId }};
+  let pollInFlight = false;
 
-function pollNotifications(){
-  fetch('{{ route("admin.notifications.poll") }}?last_id='+lastNotifId)
-    .then(r=>r.json())
-    .then(data=>{
-      // Update badge
-      const badge = document.getElementById('notif-badge');
-      if (data.unread_count > 0) {
-        badge.textContent = data.unread_count;
-        badge.style.display = 'block';
+  function escapeHtml(value) {
+    const node = document.createElement('div');
+    node.textContent = value == null ? '' : String(value);
+    return node.innerHTML;
+  }
+
+  function setPanelOpen(open) {
+    if (!panel || !toggle) return;
+    panel.classList.toggle('open', open);
+    panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  function updateAdminNotificationBadge(count) {
+    const value = Number(count || 0);
+    document.querySelectorAll('[data-admin-notif-badge]').forEach(badge => {
+      if (value > 0) {
+        badge.textContent = value > 99 ? '99+' : value;
+        badge.style.display = 'inline-flex';
       } else {
         badge.style.display = 'none';
       }
+    });
+  }
 
-      // Show toasts for new notifications
-      if (data.notifications && data.notifications.length > 0) {
-        data.notifications.forEach(n => {
-          playNotifSound();
-          showAdminToast(n.title, n.message, n.icon || 'fa-bell', 'info');
-        });
-        lastNotifId = Math.max(lastNotifId, ...data.notifications.map(n=>n.id));
-      }
+  function renderRecentNotifications(notifications) {
+    if (!list) return;
+    if (!Array.isArray(notifications) || notifications.length === 0) {
+      list.innerHTML = `
+        <div class="floating-notification-empty">
+          <i class="fa-regular fa-bell-slash"></i>
+          <strong>No notifications yet</strong>
+          <span>New service activity will appear here.</span>
+        </div>`;
+      return;
+    }
 
-      if (data.last_id > lastNotifId) lastNotifId = data.last_id;
+    list.innerHTML = notifications.map(notification => `
+      <a href="${escapeHtml(notification.action_url)}"
+         class="floating-notification-item ${notification.is_read ? 'is-read' : 'is-unread'}"
+         data-admin-notification-item
+         data-mark-read-url="${escapeHtml(notification.mark_read_url)}">
+        <span class="floating-notification-icon">
+          <i class="fa-solid ${escapeHtml(notification.icon || 'fa-bell')}"></i>
+        </span>
+        <span class="floating-notification-copy">
+          <span class="floating-notification-title">${escapeHtml(notification.title)}</span>
+          <span class="floating-notification-message">${escapeHtml(notification.message)}</span>
+          <span class="floating-notification-time">${escapeHtml(notification.created_at)}</span>
+        </span>
+        ${notification.is_read ? '' : '<span class="floating-notification-dot"></span>'}
+      </a>`).join('');
+
+    list.querySelectorAll('[data-admin-notification-item]').forEach(item => {
+      item.addEventListener('click', event => {
+        if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
+        event.preventDefault();
+        const destination = item.href;
+        fetch(item.dataset.markReadUrl, {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': csrfToken
+          },
+          credentials: 'same-origin'
+        }).finally(() => window.location.href = destination);
+      });
+    });
+  }
+
+  function playNotifSound() {
+    try {
+      const context = new (window.AudioContext || window.webkitAudioContext)();
+      [880, 1100, 880].forEach((frequency, index) => {
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        oscillator.connect(gain);
+        gain.connect(context.destination);
+        oscillator.type = 'sine';
+        oscillator.frequency.value = frequency;
+        gain.gain.setValueAtTime(0.25, context.currentTime + index * 0.15);
+        gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + index * 0.15 + 0.12);
+        oscillator.start(context.currentTime + index * 0.15);
+        oscillator.stop(context.currentTime + index * 0.15 + 0.15);
+      });
+    } catch (error) {}
+  }
+
+  function showAdminToast(title, message, icon = 'fa-bell', type = 'info', actionUrl = null) {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    const toast = document.createElement(actionUrl ? 'a' : 'div');
+    if (actionUrl) toast.href = actionUrl;
+    toast.className = `admin-toast admin-toast-${type}`;
+    toast.innerHTML = `
+      <span class="admin-toast-icon"><i class="fa-solid ${escapeHtml(icon)}"></i></span>
+      <span class="admin-toast-copy">
+        <strong>${escapeHtml(title)}</strong>
+        <span>${escapeHtml(message)}</span>
+      </span>
+      <button type="button" aria-label="Dismiss notification"><i class="fa-solid fa-xmark"></i></button>`;
+    toast.querySelector('button').addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      toast.remove();
+    });
+    container.appendChild(toast);
+    setTimeout(() => {
+      if (!toast.parentNode) return;
+      toast.classList.add('is-leaving');
+      setTimeout(() => toast.remove(), 300);
+    }, 6500);
+  }
+
+  function pollNotifications() {
+    if (pollInFlight) return;
+    pollInFlight = true;
+    fetch('{{ route('admin.notifications.poll') }}?last_id=' + lastNotifId, {
+      headers: {'Accept': 'application/json'},
+      credentials: 'same-origin',
+      cache: 'no-store'
     })
-    .catch(()=>{});
-}
+      .then(response => response.ok ? response.json() : Promise.reject())
+      .then(data => {
+        updateAdminNotificationBadge(data.unread_count);
+        renderRecentNotifications(data.recent_notifications || []);
 
-// Poll every 8 seconds for real-time feel
-setInterval(pollNotifications, 8000);
+        if (Array.isArray(data.notifications)) {
+          data.notifications.forEach(notification => {
+            playNotifSound();
+            const toastType = ['session_expired', 'request_rejected'].includes(notification.type) ? 'warn' : 'info';
+            showAdminToast(
+              notification.title,
+              notification.message,
+              notification.icon || 'fa-bell',
+              toastType,
+              notification.action_url
+            );
+          });
+        }
 
-function pollMessageBadge(){
-  fetch('{{ route("admin.messages.unread-count") }}')
-    .then(r=>r.json())
-    .then(data=>{
-      const b = document.getElementById('sb-msg-badge');
-      if (!b) return;
-      if (data.count > 0) { b.textContent = data.count; b.style.display='inline-block'; }
-      else { b.style.display = 'none'; }
-    })
-    .catch(()=>{});
-}
-setInterval(pollMessageBadge, 8000);
+        if (data.last_id !== undefined) lastNotifId = Number(data.last_id || lastNotifId);
+      })
+      .catch(() => {})
+      .finally(() => { pollInFlight = false; });
+  }
+
+  toggle?.addEventListener('click', event => {
+    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
+    event.preventDefault();
+    const willOpen = !panel.classList.contains('open');
+    setPanelOpen(willOpen);
+    if (willOpen) pollNotifications();
+  });
+
+  markAllButton?.addEventListener('click', () => {
+    fetch('{{ route('admin.notifications.mark-all-read') }}', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRF-TOKEN': csrfToken
+      },
+      credentials: 'same-origin'
+    }).then(() => {
+      updateAdminNotificationBadge(0);
+      pollNotifications();
+    }).catch(() => {});
+  });
+
+  document.addEventListener('click', event => {
+    if (!panel?.classList.contains('open')) return;
+    if (panel.contains(event.target) || toggle?.contains(event.target)) return;
+    setPanelOpen(false);
+  });
+
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') setPanelOpen(false);
+  });
+
+  setTimeout(pollNotifications, 800);
+  setInterval(() => { if (!document.hidden) pollNotifications(); }, 4000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) pollNotifications();
+  });
+
+  function pollMessageBadge() {
+    fetch('{{ route('admin.messages.unread-count') }}', {headers: {'Accept': 'application/json'}, cache: 'no-store'})
+      .then(response => response.json())
+      .then(data => {
+        const badge = document.getElementById('sb-msg-badge');
+        if (!badge) return;
+        if (data.count > 0) {
+          badge.textContent = data.count;
+          badge.style.display = 'inline-block';
+        } else {
+          badge.style.display = 'none';
+        }
+      })
+      .catch(() => {});
+  }
+  setInterval(pollMessageBadge, 8000);
+})();
 </script>
 @endpush

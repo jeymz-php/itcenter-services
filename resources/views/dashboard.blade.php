@@ -19,6 +19,7 @@
         <p>Welcome back, {{ $user->first_name }} {{ $user->last_name }}!</p>
       </div>
       <div class="topbar-right">
+        @include('user.partials.notification-button')
         <div class="clock">
           <i class="fa-solid fa-clock" style="color:var(--g600)"></i>
           <span id="clock">--:-- --</span>
@@ -45,6 +46,22 @@
           <i class="fa-solid fa-triangle-exclamation"></i>
           <div>@foreach($errors->all() as $error)<div>{{ $error }}</div>@endforeach</div>
         </div>
+      @endif
+
+      @if(!$user->guide_seen_at)
+      <div class="abox warn" data-first-guide-note style="margin-bottom:16px;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:14px 16px">
+        <div style="display:flex;align-items:flex-start;gap:10px;flex:1;min-width:240px">
+          <i class="fa-solid fa-book-open" style="margin-top:2px"></i>
+          <div>
+            <strong>First time using IT Center Services?</strong><br>
+            Please open the <strong>User Guide</strong> first to review the User Manual and Infographics before submitting your first request.
+          </div>
+        </div>
+        <button type="button" onclick="openUserGuide('manual')"
+          style="border:none;border-radius:8px;background:var(--g700);color:#fff;padding:9px 14px;font-family:inherit;font-size:.75rem;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:7px;white-space:nowrap">
+          <i class="fa-solid fa-book-open-reader"></i> Open User Guide
+        </button>
+      </div>
       @endif
 
       {{-- ── PENDING STATE ── --}}
@@ -133,7 +150,7 @@
 
       {{-- ACTIVE PC SESSION BANNER --}}
       @if($activeSession)
-      <div style="background:linear-gradient(135deg,var(--g700),var(--g500));border-radius:14px;padding:18px 20px;margin-bottom:18px;color:#fff">
+      <div id="active-pc-session-card" data-active-session-card data-request-id="{{ $activeSession->service_request_id }}" style="background:linear-gradient(135deg,var(--g700),var(--g500));border-radius:14px;padding:18px 20px;margin-bottom:18px;color:#fff;transition:all .3s ease">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
           <div style="display:flex;align-items:center;gap:14px">
             <div style="width:48px;height:48px;border-radius:12px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">
@@ -392,7 +409,7 @@
               <td style="font-size:.72rem;color:var(--gray600)">{{ $r->created_at->format('M d, Y') }}</td>
               <td>
                 @php $sc=['pending'=>'tag-pend','approved'=>'tag-appr','processing'=>'tag-res','completed'=>'tag-done','rejected'=>'tag-rej'] @endphp
-                <span class="tag {{ $sc[$r->status]??'tag-arch' }}">{{ strtoupper($r->status) }}</span>
+                <span class="tag {{ $sc[$r->status]??'tag-arch' }}" data-request-status-id="{{ $r->id }}" data-current-status="{{ $r->status }}">{{ strtoupper($r->status) }}</span>
               </td>
             </tr>
             @empty
@@ -487,40 +504,110 @@ async function dismissRatingPrompt(){
 @endif
 
 @if(isset($activeSession) && $activeSession)
-const TOTAL_SEC = {{ $activeSession->total_minutes * 60 }};
-let remaining   = {{ $activeSession->remaining_seconds }};
-let warnPlayed  = false, alarmPlayed = false;
+(function () {
+  let totalSeconds = {{ $activeSession->total_minutes * 60 }};
+  let remainingSeconds = {{ $activeSession->remaining_seconds }};
+  let running = true;
+  let timerHandle = null;
+  let warningPlayed = false;
+  let alarmPlayed = false;
 
-function playBeep(f=880,d=0.3){
-  try{const c=new(window.AudioContext||window.webkitAudioContext)();const o=c.createOscillator();const g=c.createGain();o.connect(g);g.connect(c.destination);o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(0.4,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+d);o.start(c.currentTime);o.stop(c.currentTime+d);}catch(e){}
-}
+  function playBeep(frequency = 880, duration = 0.3) {
+    try {
+      const context = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+      oscillator.type = 'sine';
+      oscillator.frequency.value = frequency;
+      gain.gain.setValueAtTime(0.4, context.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + duration);
+      oscillator.start(context.currentTime);
+      oscillator.stop(context.currentTime + duration);
+    } catch (error) {}
+  }
 
-function fmt(s){const m=Math.floor(s/60),sec=s%60;return String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0')}
+  function formatSeconds(seconds) {
+    const minutes = Math.floor(seconds / 60);
+    const remainder = seconds % 60;
+    return String(minutes).padStart(2, '0') + ':' + String(remainder).padStart(2, '0');
+  }
 
-function tickSession(){
-  if(remaining<0)remaining=0;
-  const el=document.getElementById('session-countdown');
-  if(el)el.textContent=fmt(remaining);
-  const pct=TOTAL_SEC>0?(remaining/TOTAL_SEC*100):0;
-  const bar=document.getElementById('session-progress');
-  if(bar){
-    bar.style.width=pct+'%';
-    if(remaining<=60)bar.style.background='rgba(229,62,62,.9)';
-    else if(remaining<=300)bar.style.background='rgba(255,255,255,.6)';
+  function render() {
+    remainingSeconds = Math.max(0, Number(remainingSeconds || 0));
+    const countdown = document.getElementById('session-countdown');
+    const progress = document.getElementById('session-progress');
+
+    if (countdown) countdown.textContent = formatSeconds(remainingSeconds);
+    if (progress) {
+      const percentage = totalSeconds > 0 ? (remainingSeconds / totalSeconds * 100) : 0;
+      progress.style.width = Math.max(0, Math.min(100, percentage)) + '%';
+      if (remainingSeconds <= 60) progress.style.background = 'rgba(229,62,62,.9)';
+      else if (remainingSeconds <= 300) progress.style.background = 'rgba(255,255,255,.6)';
+      else progress.style.background = 'rgba(255,255,255,.8)';
+    }
+
+    if (countdown) {
+      if (remainingSeconds <= 60) countdown.style.color = '#ffcccc';
+      else if (remainingSeconds <= 300) countdown.style.color = '#fff3cd';
+      else countdown.style.color = '#fff';
+    }
+
+    if (remainingSeconds <= 300 && !warningPlayed) {
+      warningPlayed = true;
+      playBeep(660, 0.25);
+      setTimeout(() => playBeep(660, 0.25), 300);
+    }
+
+    if (remainingSeconds <= 0 && !alarmPlayed) {
+      alarmPlayed = true;
+      playBeep(880, 0.3);
+      setTimeout(() => playBeep(660, 0.3), 350);
+      setTimeout(() => playBeep(440, 0.6), 700);
+      // Ask the server immediately to finalize the session instead of waiting
+      // for the next scheduled real-time poll.
+      setTimeout(() => window.ITCPollUserUpdates?.(), 250);
+    }
   }
-  if(el){
-    if(remaining<=60)el.style.color='#ffcccc';
-    else if(remaining<=300)el.style.color='#fff3cd';
-    else el.style.color='#fff';
+
+  function tick() {
+    timerHandle = null;
+    if (!running) return;
+    render();
+    if (remainingSeconds > 0) {
+      remainingSeconds--;
+      timerHandle = setTimeout(tick, 1000);
+    }
   }
-  if(remaining<=300&&!warnPlayed){warnPlayed=true;playBeep(660,0.25);setTimeout(()=>playBeep(660,0.25),300);}
-  if(remaining<=0&&!alarmPlayed){
-    alarmPlayed=true;
-    playBeep(880,0.3);setTimeout(()=>playBeep(660,0.3),350);setTimeout(()=>playBeep(440,0.6),700);
-  }
-  if(remaining>0){remaining--;setTimeout(tickSession,1000);}
-}
-tickSession();
+
+  window.ITCSessionTimer = {
+    update(remaining, total) {
+      const incomingRemaining = Math.max(0, Number(remaining || 0));
+      const incomingTotal = Math.max(1, Number(total || totalSeconds));
+      if (incomingRemaining > remainingSeconds + 2) {
+        warningPlayed = incomingRemaining <= 300;
+        alarmPlayed = false;
+      }
+      remainingSeconds = incomingRemaining;
+      totalSeconds = incomingTotal;
+      running = true;
+      render();
+      if (!timerHandle && remainingSeconds > 0) {
+        timerHandle = setTimeout(tick, 1000);
+      }
+    },
+    finish() {
+      running = false;
+      if (timerHandle) clearTimeout(timerHandle);
+      timerHandle = null;
+      remainingSeconds = 0;
+      render();
+    }
+  };
+
+  tick();
+})();
 @endif
 
 (function tick(){

@@ -145,7 +145,7 @@
     </div>
 
     <div style="display:flex;gap:8px;margin-top:12px">
-      <button type="button" onclick="openModal('userGuideModal')" class="btn"
+      <button type="button" onclick="openUserGuide('manual')" class="btn"
         style="background:var(--white);color:var(--g700);border:1.5px solid var(--gray200);box-shadow:none;flex:1;font-size:.74rem;padding:9px">
         <img src="{{ asset('images/icons/user-guide_icon.png') }}" alt="" style="width:15px;height:15px;object-fit:contain">
         User Manual &amp; Guide
@@ -158,7 +158,7 @@
     </div>
 
     <div class="cpr">
-      &copy; {{ date('Y') }} IT Center Services System. All rights reserved. &nbsp;·&nbsp; v{{ \App\Models\Setting::get('system_version', '1.0.0') }}<br>
+      &copy; {{ date('Y') }} IT Services System. All rights reserved. &nbsp;·&nbsp; v{{ \App\Models\Setting::get('system_version', '1.0.0') }}<br>
       <i class="fa-solid fa-envelope" style="font-size:.6rem"></i> itcenter@ucc-caloocan.com
     </div>
   </div>

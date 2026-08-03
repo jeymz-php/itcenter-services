@@ -122,7 +122,7 @@ class AuthController extends Controller
         return redirect()->route('login');
     }
 
-    public function dashboard() {
+    public function dashboard(\App\Services\ComputerSessionMonitor $monitor) {
         $user = Auth::user();
         if (!$user) {
             return redirect()->route('login');
@@ -153,6 +153,10 @@ class AuthController extends Controller
         // Pending/deactivated/rejected dashboards do not need request-history,
         // usage, or active-session queries. This keeps their page load light.
         if ($user->status === 'active') {
+            // Finalize any PC session whose occupied time already ran out before
+            // loading dashboard statistics or the active-session banner.
+            $monitor->expireDueSessionsForUser($user);
+
             $statusCounts = ServiceRequest::where('user_id', $user->id)
                 ->selectRaw('status, COUNT(*) as aggregate')
                 ->groupBy('status')

@@ -110,11 +110,21 @@ class ServiceRequest extends Model
     }
 
     public static function minutesUsedToday(int $userId): int {
-        return (int) static::where('user_id', $userId)
+        // Count both the originally requested duration and every minute added
+        // through the active/completed computer session extension workflow.
+        // Loading the one-to-one session keeps this database-driver agnostic.
+        return (int) static::with(['computerSession:id,service_request_id,extended_minutes'])
+            ->where('user_id', $userId)
             ->where('service_type', 'research')
             ->whereNotIn('status', ['rejected', 'cancelled'])
             ->where('created_at', '>=', now()->startOfDay())
-            ->sum('duration_minutes');
+            ->get(['id', 'duration_minutes'])
+            ->sum(function ($serviceRequest) {
+                $baseMinutes = (int) ($serviceRequest->duration_minutes ?? 0);
+                $extendedMinutes = (int) ($serviceRequest->computerSession?->extended_minutes ?? 0);
+
+                return $baseMinutes + $extendedMinutes;
+            });
     }
 
     public static function minutesRemainingToday(int $userId): int {

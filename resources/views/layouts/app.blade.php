@@ -257,6 +257,40 @@ tr:hover td{background:var(--g50)}
 /* notification bell */
 .notif-wrap{position:relative;cursor:pointer}
 .notif-badge{position:absolute;top:-5px;right:-5px;background:var(--red);color:var(--white);font-size:.58rem;font-weight:800;padding:2px 5px;border-radius:10px;min-width:18px;text-align:center}
+.floating-notification-toggle{color:var(--gray600);position:relative;text-decoration:none;display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;transition:background .2s,color .2s;flex-shrink:0}
+.floating-notification-toggle:hover,.floating-notification-toggle[aria-expanded="true"]{background:var(--g100);color:var(--g700)}
+.floating-notification-panel{position:fixed;top:66px;right:20px;width:min(390px,calc(100vw - 24px));max-height:min(560px,calc(100dvh - 82px));z-index:9998;background:var(--white);border:1px solid var(--gray200);border-radius:16px;box-shadow:0 18px 55px rgba(10,51,35,.25);display:flex;flex-direction:column;overflow:hidden;opacity:0;visibility:hidden;pointer-events:none;transform:translateY(-8px) scale(.985);transform-origin:top right;transition:opacity .18s ease,transform .18s ease,visibility .18s}
+.floating-notification-panel.open{opacity:1;visibility:visible;pointer-events:auto;transform:translateY(0) scale(1)}
+.floating-notification-header{padding:14px 16px;border-bottom:1px solid var(--gray200);display:flex;align-items:center;justify-content:space-between;gap:12px;background:linear-gradient(135deg,var(--g50),var(--white));flex-shrink:0}
+.floating-notification-header strong{display:block;font-size:.84rem;color:var(--gray800)}
+.floating-notification-header small{display:block;font-size:.64rem;color:var(--gray400);margin-top:2px}
+.floating-notification-text-btn{border:0;background:none;color:var(--g700);font-family:inherit;font-size:.68rem;font-weight:800;cursor:pointer;padding:5px;border-radius:6px;white-space:nowrap}
+.floating-notification-text-btn:hover{background:var(--g100)}
+.floating-notification-list{overflow-y:auto;overscroll-behavior:contain;min-height:110px;max-height:430px;scrollbar-width:thin;scrollbar-color:var(--gray300) transparent}
+.floating-notification-item{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;text-decoration:none;border-bottom:1px solid var(--gray100);position:relative;transition:background .15s}
+.floating-notification-item:hover{background:var(--g50)}
+.floating-notification-item.is-unread{background:#fbfffd}
+.floating-notification-icon{width:36px;height:36px;border-radius:10px;background:var(--g100);color:var(--g600);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:.82rem}
+.floating-notification-item.is-read .floating-notification-icon{background:var(--gray100);color:var(--gray400)}
+.floating-notification-copy{display:flex;flex-direction:column;min-width:0;flex:1}
+.floating-notification-title{font-size:.76rem;font-weight:800;color:var(--gray800);line-height:1.35;padding-right:10px}
+.floating-notification-message{font-size:.69rem;color:var(--gray600);line-height:1.45;margin-top:2px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.floating-notification-time{font-size:.61rem;color:var(--gray400);margin-top:5px}
+.floating-notification-dot{width:7px;height:7px;border-radius:50%;background:var(--g500);position:absolute;top:15px;right:12px}
+.floating-notification-empty{min-height:170px;padding:26px 18px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--gray400);gap:7px;font-size:.7rem}
+.floating-notification-empty i{font-size:1.35rem;color:var(--gray300)}
+.floating-notification-empty strong{font-size:.78rem;color:var(--gray600)}
+.floating-notification-footer{padding:11px 14px;border-top:1px solid var(--gray200);display:flex;align-items:center;justify-content:center;gap:7px;text-decoration:none;color:var(--g700);font-size:.7rem;font-weight:800;background:var(--gray50);flex-shrink:0}
+.floating-notification-footer:hover{background:var(--g100)}
+.admin-toast-container{position:fixed;top:76px;right:20px;z-index:9997;display:flex;flex-direction:column;gap:8px;width:min(360px,calc(100vw - 24px));pointer-events:none}
+.admin-toast{pointer-events:auto;background:#fff;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.18);padding:13px 14px;border-left:4px solid var(--g500);display:flex;gap:10px;align-items:flex-start;text-decoration:none;animation:fadeUp .3s cubic-bezier(.16,1,.3,1);transition:opacity .3s,transform .3s}
+.admin-toast-warn{border-left-color:var(--orange)}.admin-toast-err{border-left-color:var(--red)}
+.admin-toast.is-leaving{opacity:0;transform:translateX(18px)}
+.admin-toast-icon{width:34px;height:34px;border-radius:9px;background:var(--g100);color:var(--g600);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.admin-toast-warn .admin-toast-icon{background:var(--orange-bg);color:var(--orange)}
+.admin-toast-copy{display:flex;flex-direction:column;flex:1;min-width:0}.admin-toast-copy strong{font-size:.78rem;color:var(--gray800)}.admin-toast-copy span{font-size:.7rem;color:var(--gray600);line-height:1.45;margin-top:2px}
+.admin-toast button{background:none;border:0;color:var(--gray400);cursor:pointer;padding:2px;flex-shrink:0}
+@media(max-width:600px){.floating-notification-panel{top:60px;right:8px;width:calc(100vw - 16px);max-height:calc(100dvh - 72px)}.floating-notification-list{max-height:calc(100dvh - 195px)}.admin-toast-container{top:68px;right:8px;width:calc(100vw - 16px)}}
 
 /* profile page */
 .profile-card{background:var(--white);border-radius:14px;box-shadow:var(--shadow-sm);border:1.5px solid var(--gray200);overflow:hidden;margin-bottom:16px}
@@ -419,57 +453,300 @@ tr:hover td{background:var(--g50)}
 
 @auth
 <div id="user-toast-container"></div>
+<div id="user-notification-panel" class="floating-notification-panel" aria-hidden="true">
+  <div class="floating-notification-header">
+    <div>
+      <strong>Notifications</strong>
+      <small>Account and service updates</small>
+    </div>
+    <button type="button" id="user-mark-all-read" class="floating-notification-text-btn">Mark all read</button>
+  </div>
+  <div id="user-notification-list" class="floating-notification-list" aria-live="polite">
+    <div class="floating-notification-empty">
+      <i class="fa-solid fa-spinner fa-spin"></i>
+      <span>Loading notifications...</span>
+    </div>
+  </div>
+  <a href="{{ route('user.notifications.index') }}" class="floating-notification-footer">
+    View all notifications <i class="fa-solid fa-arrow-right"></i>
+  </a>
+</div>
 <script>
-(function(){
-  let lastNotifId = {{ \App\Models\AdminNotification::max('id') ?? 0 }};
+(function () {
+  if (window.__itcUserRealtimeReady) return;
+  window.__itcUserRealtimeReady = true;
 
-  function playPing(){
-    try{
-      const c=new(window.AudioContext||window.webkitAudioContext)();
-      const o=c.createOscillator(), g=c.createGain();
-      o.connect(g); g.connect(c.destination);
-      o.type='sine'; o.frequency.value=990;
-      g.gain.setValueAtTime(0.25,c.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.25);
-      o.start(); o.stop(c.currentTime+0.25);
-    }catch(e){}
+  let lastNotifId = {{ \App\Models\UserNotification::where('user_id', Auth::id())->max('id') ?? 0 }};
+  let pollInFlight = false;
+  const panel = document.getElementById('user-notification-panel');
+  const notificationList = document.getElementById('user-notification-list');
+  const markAllButton = document.getElementById('user-mark-all-read');
+  const csrfToken = @json(csrf_token());
+  const statusClasses = {
+    pending: 'tag-pend',
+    approved: 'tag-appr',
+    processing: 'tag-res',
+    completed: 'tag-done',
+    rejected: 'tag-rej',
+    cancelled: 'tag-arch'
+  };
+
+  function escapeHtml(value) {
+    const node = document.createElement('div');
+    node.textContent = value == null ? '' : String(value);
+    return node.innerHTML;
   }
 
-  function showUserToast(title, message, icon){
-    const c = document.getElementById('user-toast-container');
-    if (!c) return;
-    const t = document.createElement('div');
-    t.className = 'user-toast';
-    t.innerHTML = `
+  function setPanelOpen(open) {
+    if (!panel) return;
+    panel.classList.toggle('open', open);
+    panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+    document.querySelectorAll('[data-user-notification-toggle]').forEach(toggle => {
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+  }
+
+  function updateUserNotificationBadge(count) {
+    const value = Number(count || 0);
+    document.querySelectorAll('[data-user-notif-badge]').forEach(badge => {
+      if (value > 0) {
+        badge.textContent = value > 99 ? '99+' : value;
+        badge.style.display = 'inline-flex';
+      } else {
+        badge.style.display = 'none';
+      }
+    });
+  }
+
+  function renderRecentNotifications(notifications) {
+    if (!notificationList) return;
+    if (!Array.isArray(notifications) || notifications.length === 0) {
+      notificationList.innerHTML = `
+        <div class="floating-notification-empty">
+          <i class="fa-regular fa-bell-slash"></i>
+          <strong>No notifications yet</strong>
+          <span>Your account and service updates will appear here.</span>
+        </div>`;
+      return;
+    }
+
+    notificationList.innerHTML = notifications.map(notification => `
+      <a href="${escapeHtml(notification.action_url)}" class="floating-notification-item ${notification.is_read ? 'is-read' : 'is-unread'}">
+        <span class="floating-notification-icon"><i class="fa-solid ${escapeHtml(notification.icon || 'fa-bell')}"></i></span>
+        <span class="floating-notification-copy">
+          <span class="floating-notification-title">${escapeHtml(notification.title)}</span>
+          <span class="floating-notification-message">${escapeHtml(notification.message)}</span>
+          <span class="floating-notification-time">${escapeHtml(notification.created_at)}</span>
+        </span>
+        ${notification.is_read ? '' : '<span class="floating-notification-dot"></span>'}
+      </a>`).join('');
+  }
+
+  function playPing() {
+    try {
+      const context = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+      oscillator.type = 'sine';
+      oscillator.frequency.value = 990;
+      gain.gain.setValueAtTime(0.2, context.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.25);
+      oscillator.start();
+      oscillator.stop(context.currentTime + 0.25);
+    } catch (error) {}
+  }
+
+  function showUserToast(title, message, icon, actionUrl) {
+    const container = document.getElementById('user-toast-container');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = 'user-toast';
+    toast.innerHTML = `
       <div style="width:34px;height:34px;border-radius:9px;flex-shrink:0;background:var(--g100);display:flex;align-items:center;justify-content:center;color:var(--g600);font-size:.9rem">
-        <i class="fa-solid ${icon||'fa-bell'}"></i>
+        <i class="fa-solid ${escapeHtml(icon || 'fa-bell')}"></i>
       </div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:.8rem;font-weight:800;color:var(--gray800);margin-bottom:2px">${title}</div>
-        <div style="font-size:.73rem;color:var(--gray600);line-height:1.4">${message}</div>
+        <div style="font-size:.8rem;font-weight:800;color:var(--gray800);margin-bottom:2px">${escapeHtml(title)}</div>
+        <div style="font-size:.73rem;color:var(--gray600);line-height:1.4">${escapeHtml(message)}</div>
+        ${actionUrl ? `<a href="${escapeHtml(actionUrl)}" style="display:inline-flex;margin-top:6px;color:var(--g700);font-size:.68rem;font-weight:800;text-decoration:none">View update <i class="fa-solid fa-arrow-right" style="margin-left:5px"></i></a>` : ''}
       </div>
-      <button onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--gray400);cursor:pointer;font-size:.9rem;flex-shrink:0;padding:2px">
+      <button type="button" aria-label="Dismiss notification" style="background:none;border:none;color:var(--gray400);cursor:pointer;font-size:.9rem;flex-shrink:0;padding:2px">
         <i class="fa-solid fa-xmark"></i>
       </button>`;
-    c.appendChild(t);
-    setTimeout(()=>{ if(t.parentNode){ t.style.opacity='0'; setTimeout(()=>t.remove(),300); } }, 6000);
+    toast.querySelector('button').addEventListener('click', () => toast.remove());
+    container.appendChild(toast);
+    setTimeout(() => {
+      if (!toast.parentNode) return;
+      toast.style.opacity = '0';
+      setTimeout(() => toast.remove(), 300);
+    }, 7000);
   }
 
-  function pollUserNotifications(){
-    fetch('{{ route("user.notifications.poll") }}?last_id=' + lastNotifId)
-      .then(r => r.json())
+  function visibleRequestIds() {
+    const ids = new Set();
+    document.querySelectorAll('[data-request-status-id], [data-active-session-card]').forEach(element => {
+      const id = Number(element.dataset.requestStatusId || element.dataset.requestId || 0);
+      if (id > 0) ids.add(id);
+    });
+    return Array.from(ids).slice(0, 50);
+  }
+
+  function updateRequestStatus(update) {
+    const requestId = Number(update.id);
+    const status = String(update.status || '').toLowerCase();
+    const statusClass = statusClasses[status] || 'tag-arch';
+
+    document.querySelectorAll(`[data-request-status-id="${requestId}"]`).forEach(badge => {
+      const previous = badge.dataset.currentStatus || '';
+      badge.classList.remove('tag-pend', 'tag-appr', 'tag-res', 'tag-done', 'tag-rej', 'tag-arch');
+      badge.classList.add('tag', statusClass);
+      badge.textContent = update.status_label || status.toUpperCase();
+      badge.dataset.currentStatus = status;
+      if (previous && previous !== status) {
+        badge.animate([
+          {transform: 'scale(.92)', opacity: .55},
+          {transform: 'scale(1)', opacity: 1}
+        ], {duration: 320, easing: 'ease-out'});
+      }
+    });
+
+    document.querySelectorAll(`[data-request-last-updated-id="${requestId}"]`).forEach(element => {
+      element.textContent = update.updated_at || '';
+    });
+
+    document.querySelectorAll(`[data-pending-only-request="${requestId}"]`).forEach(element => {
+      element.style.display = status === 'pending' ? '' : 'none';
+    });
+
+    if (update.session) {
+      document.querySelectorAll(`[data-session-status-id="${requestId}"]`).forEach(element => {
+        element.textContent = String(update.session.status || '').replace(/_/g, ' ').replace(/\b\w/g, character => character.toUpperCase());
+      });
+    }
+
+    document.dispatchEvent(new CustomEvent('itcenter:request-updated', {detail: update}));
+  }
+
+  function finishActiveSessionCard(card, update) {
+    if (!card || card.dataset.sessionFinished === 'true') return;
+    card.dataset.sessionFinished = 'true';
+    if (window.ITCSessionTimer?.finish) window.ITCSessionTimer.finish();
+    const requestNumber = update?.request_number || 'Research / PC Lab request';
+    card.style.background = 'linear-gradient(135deg,#124530,#249660)';
+    card.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:13px">
+          <div style="width:48px;height:48px;border-radius:12px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:1.2rem">
+            <i class="fa-solid fa-circle-check"></i>
+          </div>
+          <div>
+            <div style="font-size:.9rem;font-weight:800">PC session ended in real time</div>
+            <div style="font-size:.73rem;opacity:.82;margin-top:3px">Request ${escapeHtml(requestNumber)} is now completed. No page refresh was needed.</div>
+          </div>
+        </div>
+        <a href="{{ route('requests.history') }}" style="background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:9px;padding:8px 12px;text-decoration:none;font-size:.72rem;font-weight:800">
+          View My Requests
+        </a>
+      </div>`;
+    card.animate([{opacity: .45, transform: 'translateY(-4px)'}, {opacity: 1, transform: 'translateY(0)'}], {duration: 380, easing: 'ease-out'});
+  }
+
+  function syncActiveSession(activeSession, requestUpdates) {
+    const card = document.querySelector('[data-active-session-card]');
+    if (!card) return;
+    const cardRequestId = Number(card.dataset.requestId || 0);
+    const update = (requestUpdates || []).find(item => Number(item.id) === cardRequestId);
+
+    if (!activeSession || Number(activeSession.request_id) !== cardRequestId || ['completed', 'rejected', 'cancelled'].includes(update?.status)) {
+      finishActiveSessionCard(card, update);
+      return;
+    }
+
+    const ends = document.getElementById('session-ends');
+    if (ends && activeSession.ends_at) ends.textContent = activeSession.ends_at;
+    if (window.ITCSessionTimer?.update) {
+      window.ITCSessionTimer.update(activeSession.remaining_seconds, activeSession.total_seconds);
+    }
+  }
+
+  function pollUserNotifications() {
+    if (pollInFlight) return;
+    pollInFlight = true;
+    const ids = visibleRequestIds();
+    const parameters = new URLSearchParams({last_id: String(lastNotifId)});
+    if (ids.length) parameters.set('request_ids', ids.join(','));
+
+    fetch('{{ route('user.notifications.poll') }}?' + parameters.toString(), {
+      headers: {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+      credentials: 'same-origin',
+      cache: 'no-store'
+    })
+      .then(response => response.ok ? response.json() : Promise.reject())
       .then(data => {
-        if (data.notifications && data.notifications.length){
-          data.notifications.forEach(n => {
+        updateUserNotificationBadge(data.unread_count);
+        renderRecentNotifications(data.recent_notifications || []);
+
+        if (Array.isArray(data.request_updates)) {
+          data.request_updates.forEach(updateRequestStatus);
+        }
+        syncActiveSession(data.active_session, data.request_updates || []);
+
+        if (Array.isArray(data.notifications)) {
+          data.notifications.forEach(notification => {
             playPing();
-            showUserToast(n.title, n.message, n.icon);
+            showUserToast(notification.title, notification.message, notification.icon, notification.action_url);
           });
         }
-        if (data.last_id) lastNotifId = data.last_id;
+
+        if (data.last_id !== undefined) lastNotifId = Number(data.last_id || lastNotifId);
       })
-      .catch(()=>{});
+      .catch(() => {})
+      .finally(() => { pollInFlight = false; });
   }
-  setInterval(pollUserNotifications, 6000);
+
+  document.querySelectorAll('[data-user-notification-toggle]').forEach(toggle => {
+    toggle.addEventListener('click', event => {
+      if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
+      event.preventDefault();
+      const willOpen = !panel.classList.contains('open');
+      setPanelOpen(willOpen);
+      if (willOpen) pollUserNotifications();
+    });
+  });
+
+  markAllButton?.addEventListener('click', () => {
+    fetch('{{ route('user.notifications.mark-all-read') }}', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRF-TOKEN': csrfToken
+      },
+      credentials: 'same-origin'
+    }).then(() => {
+      updateUserNotificationBadge(0);
+      pollUserNotifications();
+    }).catch(() => {});
+  });
+
+  document.addEventListener('click', event => {
+    if (!panel?.classList.contains('open')) return;
+    if (panel.contains(event.target) || event.target.closest('[data-user-notification-toggle]')) return;
+    setPanelOpen(false);
+  });
+
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') setPanelOpen(false);
+  });
+
+  window.ITCPollUserUpdates = pollUserNotifications;
+  setTimeout(pollUserNotifications, 700);
+  setInterval(() => { if (!document.hidden) pollUserNotifications(); }, 3000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) pollUserNotifications();
+  });
 })();
 </script>
 @endauth

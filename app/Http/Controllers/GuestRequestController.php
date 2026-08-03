@@ -233,8 +233,15 @@ class GuestRequestController extends Controller
         return view('public.track', compact('gr','session'));
     }
 
-    public function publicSessionStatus(GuestRequest $guestRequest) {
+    public function publicSessionStatus(GuestRequest $guestRequest, \App\Services\ComputerSessionMonitor $monitor) {
         $session = $guestRequest->computerSession;
+        if ($session
+            && in_array($session->status, ['active','extended'], true)
+            && $session->ends_at
+            && $session->ends_at->isPast()) {
+            $monitor->expireGuestSession($session->id);
+            $session->refresh();
+        }
         if (!$session || !in_array($session->status, ['active','extended'])) {
             return response()->json(['active' => false]);
         }

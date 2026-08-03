@@ -81,6 +81,11 @@
 
 <!-- EXTEND SESSION MODAL -->
 @if($session && in_array($session->status, ['active','extended']))
+@php
+  $extendDailyLimit = \App\Models\ServiceRequest::dailyResearchLimit();
+  $extendUsedToday = \App\Models\ServiceRequest::minutesUsedToday($sr->user_id);
+  $extendRemaining = max(0, $extendDailyLimit - $extendUsedToday);
+@endphp
 <div class="modal-bg" id="extendModal">
   <div class="modal-box">
     <div class="modal-hd">
@@ -90,12 +95,25 @@
     <form action="{{ route('admin.service-requests.extend-session', $sr) }}" method="POST">
       @csrf
       <div class="modal-body">
+        <div style="background:{{ $extendRemaining > 0 ? 'var(--g50)' : '#fff1f2' }};border:1px solid {{ $extendRemaining > 0 ? 'var(--g200)' : '#fecdd3' }};border-radius:10px;padding:11px 13px;margin-bottom:14px;font-size:.76rem;line-height:1.55;color:var(--gray700)">
+          <div style="font-weight:800;color:{{ $extendRemaining > 0 ? 'var(--g700)' : 'var(--red)' }};margin-bottom:2px">
+            <i class="fa-solid fa-gauge-high" style="margin-right:5px"></i>
+            Daily usage: {{ $extendUsedToday }}/{{ $extendDailyLimit }} minutes
+          </div>
+          Session extensions count toward the daily Research / PC Lab limit.
+          @if($extendRemaining > 0)
+            The user has <strong>{{ $extendRemaining }} minute(s)</strong> remaining today.
+          @else
+            The daily limit has been reached. No further extension can be added until 12:00 AM.
+          @endif
+        </div>
         <div class="fg">
           <div class="flabel">Extend By</div>
           <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
             @foreach([15,30,45,60] as $min)
-            <label style="cursor:pointer">
-              <input type="radio" name="extend_minutes" value="{{ $min }}" style="display:none">
+            @php $canUseExtension = $min <= $extendRemaining; @endphp
+            <label style="cursor:{{ $canUseExtension ? 'pointer' : 'not-allowed' }};opacity:{{ $canUseExtension ? '1' : '.42' }}" title="{{ $canUseExtension ? $min.' minutes' : 'Exceeds the remaining daily limit' }}">
+              <input type="radio" name="extend_minutes" value="{{ $min }}" style="display:none" {{ $canUseExtension ? 'required' : 'disabled' }}>
               <div class="dur-opt" style="padding:12px 8px">
                 <div style="font-size:1.2rem;font-weight:800;color:var(--g700)">{{ $min }}</div>
                 <div style="font-size:.68rem;color:var(--gray400)">minutes</div>
@@ -103,11 +121,14 @@
             </label>
             @endforeach
           </div>
+          @error('extend_minutes')
+            <div style="margin-top:9px;color:var(--red);font-size:.74rem;font-weight:700"><i class="fa-solid fa-circle-exclamation" style="margin-right:4px"></i>{{ $message }}</div>
+          @enderror
         </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="modal-btn secondary" onclick="closeModal('extendModal')">Cancel</button>
-        <button type="submit" class="modal-btn primary"><i class="fa-solid fa-clock"></i> Extend</button>
+        <button type="submit" class="modal-btn primary" {{ $extendRemaining < 15 ? 'disabled' : '' }} style="{{ $extendRemaining < 15 ? 'opacity:.5;cursor:not-allowed' : '' }}"><i class="fa-solid fa-clock"></i> Extend</button>
       </div>
     </form>
   </div>
@@ -314,9 +335,16 @@
               @endif
 
               @if($session && in_array($session->status, ['active','extended']))
-                <button class="btn" style="background:linear-gradient(135deg,var(--orange),#f57c00);padding:9px 18px;font-size:.8rem;width:auto" onclick="openModal('extendModal')">
-                  <i class="fa-solid fa-clock"></i> Extend Session
-                </button>
+                @if($reqMinLeft >= 15)
+                  <button class="btn" style="background:linear-gradient(135deg,var(--orange),#f57c00);padding:9px 18px;font-size:.8rem;width:auto" onclick="openModal('extendModal')">
+                    <i class="fa-solid fa-clock"></i> Extend Session
+                  </button>
+                @else
+                  <button class="btn" type="button" disabled title="The user has less than 15 minutes remaining in today's daily limit"
+                    style="background:var(--gray300);color:var(--gray600);padding:9px 18px;font-size:.8rem;width:auto;cursor:not-allowed;box-shadow:none">
+                    <i class="fa-solid fa-ban"></i> Daily Limit Reached
+                  </button>
+                @endif
                 <form action="{{ route('admin.service-requests.end-session', $sr) }}" method="POST"
                       onsubmit="return confirm('End session and mark as completed?')">
                   @csrf
@@ -440,6 +468,10 @@ input[type=radio]:checked + .dur-opt{border-color:var(--g500);background:var(--g
 function openModal(id){document.getElementById(id).classList.add('open')}
 function closeModal(id){document.getElementById(id).classList.remove('open')}
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open')}));
+
+@if($errors->has('extend_minutes') && $session && in_array($session->status, ['active','extended']))
+openModal('extendModal');
+@endif
 
 @if($session && in_array($session->status, ['active','extended']))
 const SESSION_ID    = {{ $sr->id }};

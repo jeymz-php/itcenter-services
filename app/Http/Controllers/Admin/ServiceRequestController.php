@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ServiceRequest;
 use App\Models\AdminNotification;
+use App\Models\UserNotification;
 use Illuminate\Http\Request;
 use App\Models\Computer;
 use App\Models\ComputerSession;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\DB;
 
 class ServiceRequestController extends Controller
 {
@@ -100,6 +102,14 @@ class ServiceRequestController extends Controller
             "Request {$serviceRequest->request_number} approved.",
             $serviceRequest->user, route('admin.service-requests.index'), 'fa-circle-check'
         );
+        UserNotification::notify(
+            $serviceRequest->user,
+            'request_approved',
+            'Request Approved',
+            "Your {$serviceRequest->service_type} request {$serviceRequest->request_number} has been approved.",
+            route('requests.show', $serviceRequest),
+            'fa-circle-check'
+        );
         return back()->with('success',"Request {$serviceRequest->request_number} approved.");
     }
 
@@ -113,6 +123,14 @@ class ServiceRequestController extends Controller
             'reviewed_at' => now(),
             'admin_note'  => $request->admin_note,
         ]);
+        UserNotification::notify(
+            $serviceRequest->user,
+            'request_rejected',
+            'Request Rejected',
+            "Your {$serviceRequest->service_type} request {$serviceRequest->request_number} was rejected. Reason: {$request->admin_note}",
+            route('requests.show', $serviceRequest),
+            'fa-circle-xmark'
+        );
         return back()->with('success',"Request rejected.");
     }
 
@@ -128,6 +146,14 @@ class ServiceRequestController extends Controller
             route('admin.service-requests.index'),
             'fa-check-double'
         );
+        UserNotification::notify(
+            $serviceRequest->user,
+            'request_completed',
+            'Service Request Completed',
+            "Your {$serviceRequest->service_type} request {$serviceRequest->request_number} has been completed.",
+            route('requests.show', $serviceRequest),
+            'fa-check-double'
+        );
         return back()->with('success', "Request marked as completed.");
     }
 
@@ -135,6 +161,14 @@ class ServiceRequestController extends Controller
         $admin = $this->guard();
         $this->assertInScope($admin, $serviceRequest);
         $serviceRequest->update(['status' => 'processing']);
+        UserNotification::notify(
+            $serviceRequest->user,
+            'request_processing',
+            'Request Is Being Processed',
+            "Your {$serviceRequest->service_type} request {$serviceRequest->request_number} is now being processed.",
+            route('requests.show', $serviceRequest),
+            'fa-gears'
+        );
         return back()->with('success',"Request marked as processing.");
     }
     public function assignPC(Request $request, ServiceRequest $serviceRequest) {
@@ -176,6 +210,14 @@ class ServiceRequestController extends Controller
             route('admin.service-requests.show', $serviceRequest),
             'fa-desktop'
         );
+        UserNotification::notify(
+            $serviceRequest->user,
+            'pc_assigned',
+            'PC Assigned — Session Started',
+            "{$computer->name} has been assigned to your request {$serviceRequest->request_number}. Your {$serviceRequest->duration_minutes}-minute session ends at {$endsAt->format('g:i A')}.",
+            route('dashboard'),
+            'fa-desktop'
+        );
 
         return back()->with('success', "{$computer->name} assigned. Session started — ends at {$endsAt->format('g:i A')}.");
     }
@@ -185,27 +227,69 @@ class ServiceRequestController extends Controller
         $this->assertInScope($admin, $serviceRequest);
         $request->validate(['extend_minutes' => 'required|integer|in:15,30,45,60']);
 
-        $session = $serviceRequest->computerSession;
-        if (!$session || !in_array($session->status, ['active','extended'])) {
-            return back()->withErrors(['error' => 'No active session to extend.']);
-        }
+        $extendMinutes = (int) $request->input('extend_minutes');
 
-        $newEndsAt = $session->ends_at->addMinutes($request->extend_minutes);
-        $session->update([
-            'ends_at'          => $newEndsAt,
-            'extended_minutes' => $session->extended_minutes + $request->extend_minutes,
-            'status'           => 'extended',
-        ]);
+        return DB::transaction(function () use ($admin, $serviceRequest, $extendMinutes) {
+            // Lock both records so repeated/double clicks cannot apply an extension
+            // after another request has already consumed the remaining allowance.
+            $lockedRequest = ServiceRequest::whereKey($serviceRequest->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        AdminNotification::notify(
-            'session_extended','Session Extended',
-            "{$serviceRequest->user->full_name} extended session by {$request->extend_minutes} min on {$session->computer->name}.",
-            $serviceRequest->user,
-            route('admin.service-requests.show', $serviceRequest),
-            'fa-clock'
-        );
+            $this->assertInScope($admin, $lockedRequest);
 
-        return back()->with('success', "Session extended by {$request->extend_minutes} minutes. New end: {$newEndsAt->format('g:i A')}.");
+            $session = ComputerSession::where('service_request_id', $lockedRequest->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$session || !in_array($session->status, ['active', 'extended'], true)) {
+                return back()->withErrors(['error' => 'No active session to extend.']);
+            }
+
+            $dailyLimit = ServiceRequest::dailyResearchLimit();
+            $usedBefore = ServiceRequest::minutesUsedToday($lockedRequest->user_id);
+            $remaining  = max(0, $dailyLimit - $usedBefore);
+
+            if ($extendMinutes > $remaining) {
+                $message = $remaining > 0
+                    ? "This extension needs {$extendMinutes} minutes, but the user only has {$remaining} minute(s) left of today's {$dailyLimit}-minute Research / PC Lab limit."
+                    : "The user has already reached today's {$dailyLimit}-minute Research / PC Lab limit. The limit resets at 12:00 AM.";
+
+                return back()->withErrors(['extend_minutes' => $message]);
+            }
+
+            $newEndsAt = $session->ends_at->copy()->addMinutes($extendMinutes);
+            $newExtendedMinutes = (int) $session->extended_minutes + $extendMinutes;
+
+            $session->update([
+                'ends_at'          => $newEndsAt,
+                'extended_minutes' => $newExtendedMinutes,
+                'status'           => 'extended',
+            ]);
+
+            $usedAfter = $usedBefore + $extendMinutes;
+
+            AdminNotification::notify(
+                'session_extended', 'Session Extended',
+                "{$lockedRequest->user->full_name}'s session was extended by {$extendMinutes} min on {$session->computer->name}. Daily Research / PC Lab usage: {$usedAfter}/{$dailyLimit} min.",
+                $lockedRequest->user,
+                route('admin.service-requests.show', $lockedRequest),
+                'fa-clock'
+            );
+            UserNotification::notify(
+                $lockedRequest->user,
+                'session_extended',
+                'PC Session Extended',
+                "Your session on {$session->computer->name} was extended by {$extendMinutes} minutes. It now ends at {$newEndsAt->format('g:i A')}. Today's Research / PC Lab usage is {$usedAfter}/{$dailyLimit} minutes.",
+                route('dashboard'),
+                'fa-clock'
+            );
+
+            return back()->with(
+                'success',
+                "Session extended by {$extendMinutes} minutes. New end: {$newEndsAt->format('g:i A')}. Daily usage: {$usedAfter}/{$dailyLimit} minutes."
+            );
+        });
     }
 
     public function endSession(ServiceRequest $serviceRequest) {
@@ -228,15 +312,33 @@ class ServiceRequestController extends Controller
             route('admin.service-requests.index'),
             'fa-desktop'
         );
+        UserNotification::notify(
+            $serviceRequest->user,
+            'session_ended',
+            'PC Session Ended',
+            "Your Research / PC Lab session for {$serviceRequest->request_number} has ended and the request is now completed.",
+            route('requests.show', $serviceRequest),
+            'fa-desktop'
+        );
         return back()->with('success', 'Session ended. Request marked as completed.');
     }
 
-    public function sessionStatus(ServiceRequest $serviceRequest) {
-        // AJAX endpoint for real-time timer
+    public function sessionStatus(ServiceRequest $serviceRequest, \App\Services\ComputerSessionMonitor $monitor) {
+        $admin = $this->guard();
+        $this->assertInScope($admin, $serviceRequest);
+
         $session = $serviceRequest->computerSession;
         if (!$session) {
             return response()->json(['error' => 'No session found'], 404);
         }
+
+        if (in_array($session->status, ['active', 'extended'], true)
+            && $session->ends_at
+            && $session->ends_at->isPast()) {
+            $monitor->expireRegisteredSession($session->id);
+            $session->refresh();
+        }
+
         return response()->json([
             'remaining_seconds' => $session->remaining_seconds,
             'ends_at'           => $session->ends_at?->format('g:i A'),

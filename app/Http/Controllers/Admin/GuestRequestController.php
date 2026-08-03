@@ -205,11 +205,19 @@ class GuestRequestController extends Controller
         return back()->with('success', 'Session ended. Request marked as completed.');
     }
 
-    public function sessionStatus(GuestRequest $guestRequest) {
+    public function sessionStatus(GuestRequest $guestRequest, \App\Services\ComputerSessionMonitor $monitor) {
         $admin = $this->guard();
         $this->assertInScope($admin, $guestRequest);
         $session = $guestRequest->computerSession;
         if (!$session) return response()->json(['error' => 'No session'], 404);
+
+        if (in_array($session->status, ['active', 'extended'], true)
+            && $session->ends_at
+            && $session->ends_at->isPast()) {
+            $monitor->expireGuestSession($session->id);
+            $session->refresh();
+        }
+
         return response()->json([
             'remaining_seconds' => $session->remaining_seconds,
             'ends_at'           => $session->ends_at?->format('g:i A'),

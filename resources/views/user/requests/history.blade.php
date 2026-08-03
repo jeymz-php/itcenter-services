@@ -69,7 +69,7 @@
       </div>
 
       <div style="display:flex;align-items:center;gap:10px">
-        <span class="tag {{ $statusClass[$r->status] ?? '' }}">{{ strtoupper($r->status) }}</span>
+        <span class="tag {{ $statusClass[$r->status] ?? '' }}" data-request-status-id="{{ $r->id }}" data-current-status="{{ $r->status }}">{{ strtoupper($r->status) }}</span>
         <span style="font-size:.7rem;color:var(--gray400)">{{ $r->created_at->format('M d, Y') }}</span>
       </div>
     </div>
@@ -145,14 +145,14 @@
         </a>
 
         @if($r->service_type === 'printing' && $r->status === 'pending')
-        <a href="{{ route('requests.printing.edit', $r) }}"
+        <a href="{{ route('requests.printing.edit', $r) }}" data-pending-only-request="{{ $r->id }}"
           style="background:var(--blue-bg);color:var(--blue);border:1.5px solid #90caf9;border-radius:8px;padding:7px 14px;font-size:.75rem;font-weight:700;display:flex;align-items:center;gap:5px;white-space:nowrap;text-decoration:none">
           <i class="fa-solid fa-pen-to-square"></i> Edit File & Details
         </a>
         @endif
 
         @if($r->service_type === 'photocopy' && $r->status === 'pending')
-        <a href="{{ route('requests.photocopy.edit', $r) }}"
+        <a href="{{ route('requests.photocopy.edit', $r) }}" data-pending-only-request="{{ $r->id }}"
           style="background:var(--orange-bg);color:var(--orange);border:1.5px solid #ffcc80;border-radius:8px;padding:7px 14px;font-size:.75rem;font-weight:700;display:flex;align-items:center;gap:5px;white-space:nowrap;text-decoration:none">
           <i class="fa-solid fa-pen-to-square"></i> Edit Request
         </a>
